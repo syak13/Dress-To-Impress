@@ -73,6 +73,16 @@ CREATE TABLE invoices (
   FOREIGN KEY (rental_id) REFERENCES rentals(rental_id) -- Enforces relational integrity
 );
 
+-- 8. Create the inventory table
+CREATE TABLE inventory (
+    dress_id INT PRIMARY KEY,               -- PK ensures each dress has only ONE record/size
+    size VARCHAR(10) NOT NULL,              -- e.g., 'XS', 'S', 'M', 'L', 'XL'
+    all_available_dates JSON,               -- Stores the list of dates as a JSON array
+    is_available BOOLEAN DEFAULT TRUE       -- Quick toggle for overall availability
+);
+
+
+
 -- Logic Behind the Data:
 -- The Happy Path (Alice): Alice booked an appointment, received her notification, rented dress 201, 
 -- and returned it right on time on March 14th with no damages. Her assessment generated no penalty row.
@@ -129,6 +139,7 @@ INSERT INTO return_assessments (rental_id, dress_id, assessment_date, is_late, i
 INSERT INTO penalty_fees (assessment_id, late_fee, damage_fee, total_penalty) VALUES
 (2, 50.00, 150.00, 200.00);
 
+
 -- 7. Insert Invoices
 -- Creating standard rental invoices for all three users, plus one penalty invoice for Chloe.
 INSERT INTO invoices (rental_id, amount, type, stripe_id, status) VALUES
@@ -145,3 +156,24 @@ INSERT INTO invoices (rental_id, amount, type, stripe_id, status) VALUES
 -- Scenario 3b (Chloe): The $200 penalty invoice triggered by Assessment ID 2.
 -- This represents an outstanding charge sent to the customer that hasn't been paid yet.
 (3, 200.00, 'PENALTY', 'pi_4DeFgHiJkLmNoPqRs444444', 'PENDING');
+
+
+-- 8. Insert Inventories
+INSERT INTO inventory (dress_id, size, all_available_dates, is_available) VALUES
+-- Scenario 1: A dress with multiple upcoming available dates
+(101, 'S', '["2026-04-16", "2026-04-17", "2026-04-18", "2026-04-19"]', TRUE),
+
+-- Scenario 2: Another available dress
+(102, 'M', '["2026-05-21", "2026-05-22", "2026-05-23"]', TRUE),
+
+-- Scenario 3: A dress that is completely booked or out of commission (empty list)
+(103, 'L', '[]', FALSE),
+
+-- Scenario 4: A dress available for just a couple of days
+(201, 'S', '["2026-06-01", "2026-06-02"]', TRUE),
+
+-- Scenario 5: A dress with a gap in availability (maybe it's booked in the middle)
+(202, 'M', '["2026-03-25", "2026-03-26", "2026-03-30", "2026-03-31"]', TRUE),
+
+-- Scenario 6: A plus-size option with limited availability
+(203, 'XXL', '["2026-04-01"]', TRUE);
