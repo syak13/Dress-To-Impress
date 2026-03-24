@@ -1,0 +1,27 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: dress_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: dress_rental
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database.sql:/docker-entrypoint-initdb.d/database.sql
+
+  assessment_service:
+    build: ./assessment_service
+    container_name: assessment-service
+    restart: unless-stopped
+    ports:
+      - "5005:5005"
+    depends_on:
+      - mysql
+    environment:
+      - DB_HOST=mysql
+
+volumes:
+  mysql_data:
