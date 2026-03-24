@@ -1,4 +1,6 @@
 services:
+
+  # ─── DATABASE ───────────────────────────────────────────────────────────────
   mysql:
     image: mysql:8.0
     container_name: dress_mysql
@@ -11,17 +13,150 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
       - ./database.sql:/docker-entrypoint-initdb.d/database.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  assessment_service:
-    build: ./assessment_service
-    container_name: assessment-service
+  # ─── ATOMIC SERVICES ────────────────────────────────────────────────────────
+  customer_service:
+    build: ./atomic/customer_service
+    container_name: customer-service
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - DBURI=mysql+mysqlconnector://root:root@mysql:3306/dress_rental
+
+  inventory_service:
+    build: ./atomic/inventory_service
+    container_name: inventory-service
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - DBURI=mysql+mysqlconnector://root:root@mysql:3306/dress_rental
+
+  booking_service:
+    build: ./atomic/booking_service
+    container_name: booking-service
+    restart: unless-stopped
+    ports:
+      - "5002:5002"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - DBURI=mysql+mysqlconnector://root:root@mysql:3306/dress_rental
+
+  notification_service:
+    build: ./atomic/notification_service
+    container_name: notification-service
+    restart: unless-stopped
+    ports:
+      - "5003:5003"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - DBURI=mysql+mysqlconnector://root:root@mysql:3306/dress_rental
+
+  rental_service:
+    build: ./atomic/rental_service
+    container_name: rental-service
+    restart: unless-stopped
+    ports:
+      - "5004:5004"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - DBURI=mysql+mysqlconnector://root:root@mysql:3306/dress_rental
+
+  invoice_service:
+    build: ./atomic/invoice_service
+    container_name: invoice-service
     restart: unless-stopped
     ports:
       - "5005:5005"
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
     environment:
-      - DB_HOST=mysql
+      - DBURI=mysql+mysqlconnector://root:root@mysql:3306/dress_rental
+
+  return_assessment_service:
+    build: ./atomic/return_assessment_service
+    container_name: return-assessment-service
+    restart: unless-stopped
+    ports:
+      - "5006:5006"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - DBURI=mysql+mysqlconnector://root:root@mysql:3306/dress_rental
+
+  # ─── COMPOSITE SERVICES ─────────────────────────────────────────────────────
+  fitting_service:
+    build: ./composite/composite_fitting
+    container_name: fitting-service
+    restart: unless-stopped
+    ports:
+      - "5010:5010"
+    depends_on:
+      - customer_service
+      - inventory_service
+      - booking_service
+      - notification_service
+    environment:
+      - CUSTOMER_URL=http://customer_service:5000
+      - INVENTORY_URL=http://inventory_service:5001
+      - BOOKING_URL=http://booking_service:5002
+      - NOTIFICATION_URL=http://notification_service:5003
+
+  place_rental_order:
+    build: ./composite/composite_rental
+    container_name: place-rental-order
+    restart: unless-stopped
+    ports:
+      - "5011:5011"
+    depends_on:
+      - customer_service
+      - inventory_service
+      - rental_service
+      - invoice_service
+      - notification_service
+    environment:
+      - CUSTOMER_URL=http://customer_service:5000
+      - INVENTORY_URL=http://inventory_service:5001
+      - RENTAL_URL=http://rental_service:5004
+      - INVOICE_URL=http://invoice_service:5005
+      - NOTIFICATION_URL=http://notification_service:5003
+
+  returning_service:
+    build: ./composite/composite_return
+    container_name: returning-service
+    restart: unless-stopped
+    ports:
+      - "5012:5012"
+    depends_on:
+      - rental_service
+      - inventory_service
+      - return_assessment_service
+      - invoice_service
+    environment:
+      - RENTAL_URL=http://rental_service:5004
+      - INVENTORY_URL=http://inventory_service:5001
+      - RETURN_ASSESSMENT_URL=http://return_assessment_service:5006
+      - INVOICE_URL=http://invoice_service:5005
 
 volumes:
   mysql_data:

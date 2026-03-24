@@ -9,8 +9,8 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY assessment.py .
+COPY return_assessment.py .
 
-EXPOSE 5005
+EXPOSE 5006
 
-CMD ["python", "assessment.py"]
+CMD ["python", "return_assessment.py"]

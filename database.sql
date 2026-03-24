@@ -29,7 +29,15 @@ SET FOREIGN_KEY_CHECKS = 1;
 CREATE TABLE customers (
     customer_id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL UNIQUE
+    email VARCHAR(190) NOT NULL UNIQUE
+);
+
+CREATE TABLE inventory (
+    dress_id INT PRIMARY KEY,
+    size VARCHAR(10) NOT NULL,
+    price DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    all_available_dates JSON,
+    is_available BOOLEAN DEFAULT TRUE
 );
 
 CREATE TABLE bookings (
@@ -39,7 +47,8 @@ CREATE TABLE bookings (
     calendar_event_id VARCHAR(255),
     slot_datetime DATETIME NOT NULL,
     status ENUM('CONFIRMED', 'CANCELLED') DEFAULT 'CONFIRMED',
-    FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+    FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
+    FOREIGN KEY (dress_id) REFERENCES inventory(dress_id)
 );
 
 CREATE TABLE notifications (
@@ -58,7 +67,8 @@ CREATE TABLE rentals (
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
     status ENUM('ACTIVE', 'COMPLETED', 'CANCELLED') DEFAULT 'ACTIVE',
-    FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+    FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
+    FOREIGN KEY (dress_id) REFERENCES inventory(dress_id)
 );
 
 CREATE TABLE return_assessments (
@@ -69,8 +79,8 @@ CREATE TABLE return_assessments (
     is_late BOOLEAN DEFAULT FALSE,
     is_damaged BOOLEAN DEFAULT FALSE,
     damage_description TEXT,
-    assessed_by INT NOT NULL,
-    FOREIGN KEY (rental_id) REFERENCES rentals(rental_id)
+    FOREIGN KEY (rental_id) REFERENCES rentals(rental_id),
+    FOREIGN KEY (dress_id) REFERENCES inventory(dress_id)
 );
 
 CREATE TABLE penalty_fees (
@@ -94,13 +104,6 @@ CREATE TABLE invoices (
   FOREIGN KEY (rental_id) REFERENCES rentals(rental_id)
 );
 
-CREATE TABLE inventory (
-    dress_id INT PRIMARY KEY,
-    size VARCHAR(10) NOT NULL,
-    all_available_dates JSON,
-    is_available BOOLEAN DEFAULT TRUE
-);
-
 -- =========================
 -- INSERT DATA
 -- =========================
@@ -109,6 +112,14 @@ INSERT INTO customers (name, email) VALUES
 ('Alice Smith', 'alice@example.com'),
 ('Bob Jones', 'bob@example.com'),
 ('Chloe Davis', 'chloe@example.com');
+
+INSERT INTO inventory (dress_id, size, price, all_available_dates, is_available) VALUES
+(101, 'S',   80.00,  '["2026-04-16","2026-04-17","2026-04-18","2026-04-19"]', TRUE),
+(102, 'M',   120.00, '["2026-05-21","2026-05-22","2026-05-23"]',              TRUE),
+(103, 'L',   95.00,  '[]',                                                    FALSE),
+(201, 'S',   80.00,  '["2026-06-01","2026-06-02"]',                           TRUE),
+(202, 'M',   120.00, '["2026-03-25","2026-03-26","2026-03-30","2026-03-31"]', TRUE),
+(203, 'XXL', 90.00,  '["2026-04-01"]',                                        TRUE);
 
 INSERT INTO bookings (customer_id, dress_id, calendar_event_id, slot_datetime, status) VALUES
 (1, 101, 'evt_xyz123', '2026-04-15 10:00:00', 'CONFIRMED'),
@@ -125,9 +136,9 @@ INSERT INTO rentals (customer_id, dress_id, start_date, end_date, status) VALUES
 (2, 202, '2026-03-18', '2026-03-22', 'ACTIVE'),
 (3, 203, '2026-02-01', '2026-02-05', 'COMPLETED');
 
-INSERT INTO return_assessments (rental_id, dress_id, assessment_date, is_late, is_damaged, damage_description, assessed_by) VALUES
-(1, 201, '2026-03-14 15:00:00', FALSE, FALSE, NULL, 991),
-(3, 203, '2026-02-07 10:00:00', TRUE, TRUE, 'Wine stain on the hem and returned 2 days late.', 992);
+INSERT INTO return_assessments (rental_id, dress_id, assessment_date, is_late, is_damaged, damage_description) VALUES
+(1, 201, '2026-03-14 15:00:00', FALSE, FALSE, NULL),
+(3, 203, '2026-02-07 10:00:00', TRUE, TRUE, 'Wine stain on the hem and returned 2 days late.');
 
 INSERT INTO penalty_fees (assessment_id, late_fee, damage_fee, total_penalty) VALUES
 (2, 50.00, 150.00, 200.00);
@@ -137,11 +148,3 @@ INSERT INTO invoices (rental_id, amount, type, stripe_id, status) VALUES
 (2, 120.00, 'RENTAL', 'pi_2BcDeFgHiJkLmNoPq222222', 'PAID'),
 (3, 90.00, 'RENTAL', 'pi_3CdEfGhIjKlMnOpQr333333', 'PAID'),
 (3, 200.00, 'PENALTY', 'pi_4DeFgHiJkLmNoPqRs444444', 'PENDING');
-
-INSERT INTO inventory (dress_id, size, all_available_dates, is_available) VALUES
-(101, 'S', '["2026-04-16","2026-04-17","2026-04-18","2026-04-19"]', TRUE),
-(102, 'M', '["2026-05-21","2026-05-22","2026-05-23"]', TRUE),
-(103, 'L', '[]', FALSE),
-(201, 'S', '["2026-06-01","2026-06-02"]', TRUE),
-(202, 'M', '["2026-03-25","2026-03-26","2026-03-30","2026-03-31"]', TRUE),
-(203, 'XXL', '["2026-04-01"]', TRUE);
