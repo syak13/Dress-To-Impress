@@ -1,8 +1,12 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 
+import os
+
 app=Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://root:root@localhost:3306/dress_rental'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
+    'DBURI', 'mysql+mysqlconnector://root:root@localhost:3306/dress_rental'
+)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS']=False
 app.config['SQLALCHEMY_ENGINE_OPTIONS']={'pool_recycle':299}
 
@@ -107,4 +111,4 @@ def create_customer():
     ), 201
 
 if __name__ == '__main__':
-    app.run(port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)

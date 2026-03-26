@@ -1,8 +1,11 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
+import os
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://root:syakira13@localhost:3306/dress_rental'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
+    'DBURI', 'mysql+mysqlconnector://root:root@localhost:3306/dress_rental'
+)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_recycle': 299}
 db = SQLAlchemy(app)
@@ -30,6 +33,11 @@ class Rental(db.Model):
 @app.route("/rental", methods=['POST'])
 def create_rental():
     data = request.get_json()
+
+    for field in ['customer_id', 'dress_id', 'start_date', 'end_date']:
+        if field not in data:
+            return jsonify({"code": 400, "message": f"Missing required field: {field}"}), 400
+            
     rental = Rental(
         customer_id=data['customer_id'],
         dress_id=data['dress_id'],
@@ -37,8 +45,14 @@ def create_rental():
         end_date=data['end_date'],
         status='ACTIVE'
     )
-    db.session.add(rental)
-    db.session.commit()
+
+    try:
+        db.session.add(rental)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"code": 500, "message": "An error occurred creating the rental."}), 500
+    
     return jsonify({"code": 201, "data": rental.json()}), 201
 
 # UC3 Step 3 / UC4 Step 1 — GET one rental by ID
@@ -57,18 +71,18 @@ def update_rental(rental_id):
         return jsonify({"code": 404, "message": "Rental not found"}), 404
 
     data = request.get_json()
-    # safe updates
-    if 'status' in data:
-        rental.status = data['status']
-    if 'late_fee' in data and hasattr(rental, 'late_fee'):
-        rental.late_fee = data['late_fee']
-    if 'damage_fee' in data and hasattr(rental, 'damage_fee'):
-        rental.damage_fee = data['damage_fee']
-    if 'total_penalty' in data and hasattr(rental, 'total_penalty'):
-        rental.total_penalty = data['total_penalty']
 
-    db.session.commit()
+    if 'status' not in data:
+        return jsonify({"code": 400, "message": "Missing required field: status"}), 400
+        
+    try:
+        rental.status = data['status']
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"code": 500, "message": "An error occurred updating the rental."}), 500
+
     return jsonify({"code": 200, "data": rental.json()}), 200
 
 if __name__ == '__main__':
-    app.run(port=5002, debug=True)
+    app.run(host='0.0.0.0', port=5004, debug=True)

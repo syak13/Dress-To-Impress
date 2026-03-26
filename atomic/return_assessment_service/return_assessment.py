@@ -7,9 +7,8 @@ app = Flask(__name__)
 
 # Uses your database: dress_rental
 # If MySQL runs as a container in Docker Compose, change host.docker.internal → mysql
-DB_HOST = os.getenv('DB_HOST', 'localhost')
-app.config['SQLALCHEMY_DATABASE_URI'] = (
-    f'mysql+mysqlconnector://root:root@{DB_HOST}:3306/dress_rental'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
+    'DBURI', 'mysql+mysqlconnector://root:root@localhost:3306/dress_rental'
 )
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_recycle': 299}
@@ -27,7 +26,6 @@ class ReturnAssessment(db.Model):
     is_late            = db.Column(db.Boolean, default=False)
     is_damaged         = db.Column(db.Boolean, default=False)
     damage_description = db.Column(db.Text)
-    assessed_by        = db.Column(db.Integer, nullable=False)
 
     def json(self):
         return {
@@ -38,7 +36,6 @@ class ReturnAssessment(db.Model):
             "is_late": self.is_late,
             "is_damaged": self.is_damaged,
             "damage_description": self.damage_description,
-            "assessed_by": self.assessed_by,
         }
 
 
@@ -89,18 +86,16 @@ def create_assessment():
       "end_date": "2026-03-14",
       "is_damaged": true/false,
       "damage_description": "...",
-      "assessed_by": 991
     }
     """
     data = request.get_json() or {}
 
-    required = ["rental_id", "dress_id", "end_date", "assessed_by"]
-    missing = [k for k in required if k not in data]
-    if missing:
-        return jsonify({
-            "code": 400,
-            "message": f"Missing fields: {', '.join(missing)}"
-        }), 400
+    for field in ["rental_id", "dress_id", "end_date"]:
+        if field not in data:
+            return jsonify({
+                "code": 400,
+                "message": f"Missing required field: {field}"
+            }), 400
 
     is_late = calculate_is_late(data["end_date"])
     is_damaged = bool(data.get("is_damaged", False))
@@ -112,7 +107,6 @@ def create_assessment():
         is_late=is_late,
         is_damaged=is_damaged,
         damage_description=data.get("damage_description", ""),
-        assessed_by=data["assessed_by"],
     )
 
     try:
@@ -147,13 +141,12 @@ def create_penalty():
     }
     """
     data = request.get_json() or {}
-    required = ["assessment_id", "late_fee", "damage_fee"]
-    missing = [k for k in required if k not in data]
-    if missing:
-        return jsonify({
-            "code": 400,
-            "message": f"Missing fields: {', '.join(missing)}"
-        }), 400
+    for field in ["assessment_id", "late_fee", "damage_fee"]:
+        if field not in data:
+            return jsonify({
+                "code": 400,
+                "message": f"Missing required field: {field}"
+            }), 400
 
     assessment = db.session.get(ReturnAssessment, data["assessment_id"])
     if not assessment:
@@ -218,4 +211,4 @@ def get_penalty(penalty_id):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5005, debug=True)
+    app.run(host="0.0.0.0", port=5006, debug=True)
