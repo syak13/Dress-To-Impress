@@ -54,14 +54,14 @@ const props = defineProps({
 }
 
 .image-placeholder::before {
-  /* content: '';
+  content: '';
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   height: 80px;
   background: rgba(255, 255, 255, 0.4);
-  border-radius: 20px 20px 0 0; */
+  border-radius: 20px 20px 0 0;
 }
 
 .dress-icon {
