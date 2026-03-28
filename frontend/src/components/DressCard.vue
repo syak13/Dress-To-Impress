@@ -1,13 +1,17 @@
 <template>
   <article class="card">
     <div class="image-placeholder" :style="{ background: `linear-gradient(${dress.gradient})` }">
-      <div class="dress-icon">👗</div>
+      <!-- <div class="dress-icon">
+        <img src="../../pub" alt="">
+      </div> -->
+      <img :src="dress.img" alt="">
     </div>
     <div class="body">
       <h3>{{ dress.name }}</h3>
       <p class="meta">{{ dress.size }} • {{ dress.color }}</p>
-      <p class="price">From {{ dress.pricePerDay }} / day</p>
-      <RouterLink to="/rental" class="rent-link">Rent this dress</RouterLink>
+      <p class="price">From ${{ dress.price }} / day</p>
+      <RouterLink :to="`/rental/${dress.dress_id}`" class="rent-link">Rent this dress</RouterLink>
+      <RouterLink :to="`/fitting/${dress.dress_id}`" class="rent-link">Book fitting for this dress</RouterLink>
     </div>
   </article>
 </template>
@@ -39,8 +43,8 @@ const props = defineProps({
 }
 
 .image-placeholder {
-  width: 100%;
-  height: 240px;
+  width: auto;
+  height: 300px;
   border-radius: 20px 20px 0 0;
   display: flex;
   align-items: center;
@@ -50,14 +54,14 @@ const props = defineProps({
 }
 
 .image-placeholder::before {
-  content: '';
+  /* content: '';
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   height: 80px;
   background: rgba(255, 255, 255, 0.4);
-  border-radius: 20px 20px 0 0;
+  border-radius: 20px 20px 0 0; */
 }
 
 .dress-icon {
@@ -113,6 +117,7 @@ h3 {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   box-shadow: var(--shadow-soft);
+  margin-top: 10px;
 }
 
 .rent-link:hover {

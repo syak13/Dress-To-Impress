@@ -1,8 +1,11 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 import os
+from flask_cors import CORS
+
 
 app = Flask(__name__)
+CORS(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
     'DBURI', 'mysql+mysqlconnector://root:root@localhost:3306/dress_rental'
 )
@@ -16,23 +19,32 @@ class Inventory(db.Model):
     __tablename__ = 'inventory'
 
     dress_id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
     size = db.Column(db.String(10), nullable=False)
     price = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)
+    color = db.Column(db.String(255), nullable=False)
+    img = db.Column(db.String(255), nullable=False)
     all_available_dates = db.Column(db.JSON)
     is_available = db.Column(db.Boolean, default=True)
 
-    def __init__(self, dress_id, size, price, all_available_dates=None, is_available=True):
+    def __init__(self, dress_id, name, size, price, color, img, all_available_dates=None, is_available=True):
         self.dress_id = dress_id
+        self.name = name
         self.size = size
         self.price = price
+        self.color = color
+        self.img = img
         self.all_available_dates = all_available_dates or []
         self.is_available = is_available
 
     def json(self):
         return {
             "dress_id": self.dress_id,
+            "name": self.name,
             "size": self.size,
             "price": float(self.price),
+            "color": self.color,
+            "img": self.img,
             "all_available_dates": self.all_available_dates,
             "is_available": self.is_available
         }
@@ -152,7 +164,7 @@ def update_inventory(dress_id):
 def create_dress():
     data = request.get_json()
 
-    for field in ['dress_id', 'size', 'price']:
+    for field in ['dress_id', 'name', 'size', 'price', 'color', 'img']:
         if field not in data:
             return jsonify({
                 "code": 400,
@@ -167,8 +179,11 @@ def create_dress():
 
     dress = Inventory(
         dress_id=data['dress_id'],
+        name=data['name'],
         size=data['size'],
         price=data['price'],
+        color=data['color'],
+        img=data['img'],
         all_available_dates=data.get('all_available_dates', []),
         is_available=data.get('is_available', True)
     )

@@ -1,27 +1,25 @@
 <template>
   <section class="page">
-    <h2>Rent dress</h2>
+    <h2>Return a dress</h2>
 
     <!-- <div class="tabs">
       <button :class="{ active: activeTab === 'rent' }" @click="activeTab = 'rent'">
-        Rent dress
+        Rent a dress
       </button>
       <button :class="{ active: activeTab === 'return' }" @click="activeTab = 'return'">
         Return a dress
       </button>
     </div> -->
 
-    <form v-if="activeTab === 'rent'" class="form" @submit.prevent="handleRent">
+    <!-- <form v-if="activeTab === 'rent'" class="form" @submit.prevent="handleRent">
       <h3>Rental details</h3>
 
-      <!-- <div v-if="selectedDress" class="dress-preview">
+      <div v-if="selectedDress" class="dress-preview">
         <h4>Selected: {{ selectedDress.name }} ({{ selectedDress.size }})</h4>
         <p>Price: ${{ selectedDress.price }}/day</p>
         <p>Available: {{ selectedDress.is_available ? 'Yes' : 'No' }}</p>
-      </div> -->
-      <div class="form-group">
-        <img :src="rentForm.img" alt="" style="height:300px; margin:auto;">
       </div>
+
       <div class="form-group">
         <label>
           Dress ID / Name
@@ -31,25 +29,11 @@
 
       <div class="form-group">
         <label>
-          Dress Size
-          <input v-model="rentForm.size" type="text" readonly />
-        </label>
-      </div>
-
-      <div class="form-group">
-        <label>
-          Dress Price
-          <input v-model="rentForm.price" type="text" readonly>
-        </label>
-      </div>
-
-      <div class="form-group">
-        <label>
           Customer name
           <input v-model="rentForm.name" type="text" required />
         </label>
       </div>
-
+      
       <div class="form-group">
         <label>
           Rental start date
@@ -69,9 +53,9 @@
       <p v-if="rentSubmitted" class="success">
         Rental placed. We will email your confirmation.
       </p>
-    </form>
+    </form> -->
 
-    <!-- <form v-else class="form" @submit.prevent="handleReturn">
+    <form class="form" @submit.prevent="handleReturn">
       <h3>Return details</h3>
 
       <label>
@@ -94,7 +78,7 @@
       <p v-if="returnSubmitted" class="success">
         Return submitted. Thank you!
       </p>
-    </form> -->
+    </form>
   </section>
 </template>
 
@@ -122,9 +106,6 @@ onMounted(async () => {
       selectedDress.value = data.data
       // Auto-fill form
       rentForm.dress = `${selectedDress.value.dress_id} - ${selectedDress.value.name}`
-      rentForm.size = `${selectedDress.value.size}`
-      rentForm.price = `$${selectedDress.value.price}`
-      rentForm.img = `${selectedDress.value.img}`
     }
   }
 })
@@ -136,11 +117,11 @@ const rentForm = reactive({
   endDate: ''
 })
 
-// const returnForm = reactive({
-//   reference: '',
-//   returnDate: '',
-//   notes: ''
-// })
+const returnForm = reactive({
+  reference: '',
+  returnDate: '',
+  notes: ''
+})
 
 const rentSubmitted = ref(false)
 const returnSubmitted = ref(false)
@@ -150,10 +131,10 @@ const handleRent = () => {
   // later: POST to backend
 }
 
-// const handleReturn = () => {
-//   returnSubmitted.value = true
-//   // later: POST to backend
-// }
+const handleReturn = () => {
+  returnSubmitted.value = true
+  // later: POST to backend
+}
 </script>
 
 <style scoped>
@@ -199,7 +180,6 @@ h2 {
 .form-group {
   margin-bottom: 1.8rem;
   position: relative;
-  justify-content: center;
 }
 
 label {
@@ -320,16 +300,11 @@ h3 {
   border-radius: 8px;
   margin-bottom: 1rem;
   border-left: 4px solid var(--pastel-blue);
-  justify-content: center;
 }
 
 input[readonly] {
   background: #f8f9fa;
   color: #666;
-}
-
-.image {
-  height: 100px;
 }
 
 </style>

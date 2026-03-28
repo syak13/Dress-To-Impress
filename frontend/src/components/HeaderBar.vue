@@ -7,8 +7,9 @@
     <nav class="nav">
       <RouterLink to="/">Home</RouterLink>
       <RouterLink to="/dresses">Browse Dresses</RouterLink>
-      <RouterLink to="/fitting">Book Fitting</RouterLink>
-      <RouterLink to="/rental">Rentals</RouterLink>
+      <!-- <RouterLink to="/fitting">Book Fitting</RouterLink>
+      <RouterLink to="/rental">Rent Dress</RouterLink> -->
+      <RouterLink to="/return">Return Dress</RouterLink>
     </nav>
   </header>
 </template>
