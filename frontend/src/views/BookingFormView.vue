@@ -57,21 +57,21 @@
           <div class="form-group">
         <label>
           Customer Name
-          <input required />
+          <input v-model="customerDetails.name" required />
         </label>
       </div>
 
       <div class="form-group">
         <label>
           Phone Number
-          <input required />
+          <input v-model="customerDetails.phone" required />
         </label>
       </div>
 
       <div class="form-group">
         <label>
           Email
-        <input required />
+        <input v-model="customerDetails.email" type="email" required />
         </label>
       </div>
 
@@ -214,16 +214,26 @@ const activeTab = ref('rent')
 
 const selectedDress = ref(null)
 
+const customerDetails = reactive({ name: '', phone: '', email: '' })
+
 onMounted(async () => {
+  // Auto-fill customer info from login session
+  const stored = localStorage.getItem('dti_user')
+  if (stored) {
+    const user = JSON.parse(stored)
+    customerDetails.name = user.name || ''
+    customerDetails.email = user.email || ''
+  }
+
   const dressId = route.params.dressId
   rentForm.startDate = route.query.startDate || ''
   rentForm.endDate = route.query.endDate || ''
-  
+
   if (dressId) {
     // Fetch dress details from backend
     const res = await fetch(`http://localhost:5001/inventory/${dressId}`)
     const data = await res.json()
-    
+
     if (data.code === 200) {
       selectedDress.value = data.data
       // Auto-fill form

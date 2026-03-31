@@ -29,7 +29,9 @@ SET FOREIGN_KEY_CHECKS = 1;
 CREATE TABLE customers (
     customer_id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    email VARCHAR(190) NOT NULL UNIQUE
+    email VARCHAR(190) NOT NULL UNIQUE,
+    password_hash VARCHAR(255),
+    role ENUM('customer', 'employee') DEFAULT 'customer'
 );
 
 CREATE TABLE inventory (
@@ -111,10 +113,12 @@ CREATE TABLE invoices (
 -- INSERT DATA
 -- =========================
 
-INSERT INTO customers (name, email) VALUES
-('Alice Smith', 'alice@example.com'),
-('Bob Jones', 'bob@example.com'),
-('Chloe Davis', 'chloe@example.com');
+INSERT INTO customers (name, email, password_hash, role) VALUES
+('Alice Smith', 'alice@user.com', 'user123', 'customer'),
+('Bob Jones', 'bob@user.com', 'user123', 'customer'),
+('Chloe Davis', 'chloe@user.com', 'user123', 'customer'),
+('Sarah Employee', 'sarah@staff.com', 'staff123', 'employee'),
+('James Employee', 'james@staff.com', 'staff123', 'employee');
 
 INSERT INTO inventory (dress_id, name, size, price, color, img, unavailable_dates, is_available) VALUES
 (101, 'Blush Satin Gown', 'S',   80.00, 'Pink', '/images/dress_pink.jpeg', '["2026-04-16","2026-04-17","2026-04-18","2026-04-19"]', TRUE),
