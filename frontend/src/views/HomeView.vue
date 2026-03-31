@@ -14,21 +14,22 @@
           <RouterLink to="/dresses" class="btn btn-primary">
             ✨ Browse Collection ✨
           </RouterLink>
-          <RouterLink to="/fitting" class="btn btn-secondary">
+          <!-- <RouterLink to="/fitting" class="btn btn-secondary">
             Book Fitting
-          </RouterLink>
+          </RouterLink> -->
         </div>
       </div>
-      <div class="hero-image">
+      <!-- <div class="hero-image">
         <div class="dress-preview">
           <div class="dress-card floating">
             <div class="dress-image-placeholder">
               <div class="dress-icon">👗</div>
+               <div><img src="../../public/images/dress_pink.jpeg" alt=""></img></div>
               <span>Blush Satin Gown</span>
             </div>
           </div>
         </div>
-      </div>
+      </div> -->
     </div>
   </section>
 </template>

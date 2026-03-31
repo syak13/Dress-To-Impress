@@ -1,8 +1,11 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 import os
+from flask_cors import CORS
+
 
 app = Flask(__name__)
+CORS(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
     'DBURI', 'mysql+mysqlconnector://root:root@localhost:3306/dress_rental'
 )
@@ -16,24 +19,33 @@ class Inventory(db.Model):
     __tablename__ = 'inventory'
 
     dress_id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
     size = db.Column(db.String(10), nullable=False)
     price = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)
-    all_available_dates = db.Column(db.JSON)
+    color = db.Column(db.String(255), nullable=False)
+    img = db.Column(db.String(255), nullable=False)
+    unavailable_dates = db.Column(db.JSON)
     is_available = db.Column(db.Boolean, default=True)
 
-    def __init__(self, dress_id, size, price, all_available_dates=None, is_available=True):
+    def __init__(self, dress_id, name, size, price, color, img, unavailable_dates=None, is_available=True):
         self.dress_id = dress_id
+        self.name = name
         self.size = size
         self.price = price
-        self.all_available_dates = all_available_dates or []
+        self.color = color
+        self.img = img
+        self.unavailable_dates = unavailable_dates or []
         self.is_available = is_available
 
     def json(self):
         return {
             "dress_id": self.dress_id,
+            "name": self.name,
             "size": self.size,
             "price": float(self.price),
-            "all_available_dates": self.all_available_dates,
+            "color": self.color,
+            "img": self.img,
+            "unavailable_dates": self.unavailable_dates,
             "is_available": self.is_available
         }
 
@@ -129,8 +141,8 @@ def update_inventory(dress_id):
         dress.is_available = data['is_available']
 
         # also update available dates if provided
-        if 'all_available_dates' in data:
-            dress.all_available_dates = data['all_available_dates']
+        if 'unavailable_dates' in data:
+            dress.unavailable_dates = data['unavailable_dates']
 
         db.session.commit()
     except Exception as e:
@@ -152,7 +164,7 @@ def update_inventory(dress_id):
 def create_dress():
     data = request.get_json()
 
-    for field in ['dress_id', 'size', 'price']:
+    for field in ['dress_id', 'name', 'size', 'price', 'color', 'img']:
         if field not in data:
             return jsonify({
                 "code": 400,
@@ -167,9 +179,12 @@ def create_dress():
 
     dress = Inventory(
         dress_id=data['dress_id'],
+        name=data['name'],
         size=data['size'],
         price=data['price'],
-        all_available_dates=data.get('all_available_dates', []),
+        color=data['color'],
+        img=data['img'],
+        unavailable_dates=data.get('unavailable_dates', []),
         is_available=data.get('is_available', True)
     )
 

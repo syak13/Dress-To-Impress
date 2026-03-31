@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from flask_cors import CORS
 
 import os
 
@@ -11,6 +12,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS']=False
 app.config['SQLALCHEMY_ENGINE_OPTIONS']={'pool_recycle':299}
 
 db = SQLAlchemy(app)
+CORS(app)
 
 class Customer(db.Model):
     __tablename__ = 'customers'
@@ -18,13 +20,17 @@ class Customer(db.Model):
     customer_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String(255), nullable=False)
     email = db.Column(db.String(255), nullable=False, unique=True)
+    password_hash = db.Column(db.String(255), nullable=True)
+    role = db.Column(db.Enum('customer', 'employee'), nullable=False, default='customer')
 
-    def __init__(self, name, email):
+    def __init__(self, name, email, password_hash=None, role='customer'):
         self.name = name
         self.email = email
+        self.password_hash = password_hash
+        self.role = role
 
     def json(self):
-        return {"customer_id": self.customer_id, "name": self.name, "email": self.email}
+        return {"customer_id": self.customer_id, "name": self.name, "email": self.email, "role": self.role}
 
 
 @app.route("/customer")
@@ -109,6 +115,46 @@ def create_customer():
             "data": customer.json()
         }
     ), 201
+
+@app.route("/customer/register", methods=['POST'])
+def register_customer():
+    data = request.get_json()
+
+    if not data or 'name' not in data or 'email' not in data or 'password' not in data:
+        return jsonify({"code": 400, "message": "Missing required fields: name, email, password"}), 400
+
+    if db.session.scalar(db.select(Customer).filter_by(email=data['email'])):
+        return jsonify({"code": 400, "message": "An account with this email already exists."}), 400
+
+    customer = Customer(
+        name=data['name'],
+        email=data['email'],
+        password_hash=data['password']
+    )
+
+    try:
+        db.session.add(customer)
+        db.session.commit()
+    except Exception as e:
+        return jsonify({"code": 500, "message": "An error occurred creating the account."}), 500
+
+    return jsonify({"code": 201, "data": customer.json()}), 201
+
+
+@app.route("/customer/login", methods=['POST'])
+def login_customer():
+    data = request.get_json()
+
+    if not data or 'email' not in data or 'password' not in data:
+        return jsonify({"code": 400, "message": "Missing required fields: email, password"}), 400
+
+    customer = db.session.scalar(db.select(Customer).filter_by(email=data['email']))
+
+    if not customer or not customer.password_hash or customer.password_hash != data['password']:
+        return jsonify({"code": 401, "message": "Invalid email or password."}), 401
+
+    return jsonify({"code": 200, "data": customer.json()}), 200
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

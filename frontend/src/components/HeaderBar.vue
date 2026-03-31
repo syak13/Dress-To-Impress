@@ -5,16 +5,41 @@
       Dress To Impress
     </div>
     <nav class="nav">
-      <RouterLink to="/">Home</RouterLink>
-      <RouterLink to="/dresses">Browse Dresses</RouterLink>
-      <RouterLink to="/fitting">Book Fitting</RouterLink>
-      <RouterLink to="/rental">Rentals</RouterLink>
+      <!-- Customer nav -->
+      <template v-if="!user || user.role === 'customer'">
+        <RouterLink to="/">Home</RouterLink>
+        <RouterLink to="/dresses">Browse Dresses</RouterLink>
+      </template>
+      <!-- Employee nav -->
+      <template v-if="user?.role === 'employee'">
+        <RouterLink to="/return">Return Dress</RouterLink>
+      </template>
     </nav>
+    <div class="auth-section">
+      <template v-if="user">
+        <span class="user-greeting">Hi, {{ user.name.split(' ')[0] }}</span>
+        <button class="logout-btn" @click="logout">Logout</button>
+      </template>
+      <template v-else>
+        <RouterLink to="/login" class="login-btn">Login</RouterLink>
+      </template>
+    </div>
   </header>
 </template>
 
 <script setup>
-import { RouterLink } from 'vue-router'
+import { computed } from 'vue'
+import { RouterLink, useRouter } from 'vue-router'
+import { useAuth } from '../composables/useAuth'
+
+const router = useRouter()
+const { state, logout: authLogout } = useAuth()
+const user = computed(() => state.user)
+
+function logout() {
+  authLogout()
+  router.push('/login')
+}
 </script>
 
 <style scoped>
@@ -70,5 +95,49 @@ import { RouterLink } from 'vue-router'
   background: var(--gradient-bg);
   color: white;
   box-shadow: var(--shadow-soft);
+}
+
+.auth-section {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.user-greeting {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--dark-blue);
+}
+
+.login-btn {
+  color: var(--dark-blue);
+  text-decoration: none;
+  font-weight: 600;
+  padding: 0.5rem 1.2rem;
+  border-radius: 25px;
+  background: var(--gradient-bg);
+  color: white;
+  transition: all 0.3s ease;
+  box-shadow: var(--shadow-soft);
+}
+
+.login-btn:hover {
+  transform: translateY(-2px);
+}
+
+.logout-btn {
+  padding: 0.45rem 1rem;
+  border: 2px solid rgba(255, 154, 198, 0.5);
+  border-radius: 25px;
+  background: transparent;
+  color: var(--dark-blue);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.logout-btn:hover {
+  background: var(--pastel-pink);
 }
 </style>
