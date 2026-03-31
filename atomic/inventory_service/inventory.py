@@ -24,17 +24,17 @@ class Inventory(db.Model):
     price = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)
     color = db.Column(db.String(255), nullable=False)
     img = db.Column(db.String(255), nullable=False)
-    all_available_dates = db.Column(db.JSON)
+    unavailable_dates = db.Column(db.JSON)
     is_available = db.Column(db.Boolean, default=True)
 
-    def __init__(self, dress_id, name, size, price, color, img, all_available_dates=None, is_available=True):
+    def __init__(self, dress_id, name, size, price, color, img, unavailable_dates=None, is_available=True):
         self.dress_id = dress_id
         self.name = name
         self.size = size
         self.price = price
         self.color = color
         self.img = img
-        self.all_available_dates = all_available_dates or []
+        self.unavailable_dates = unavailable_dates or []
         self.is_available = is_available
 
     def json(self):
@@ -45,7 +45,7 @@ class Inventory(db.Model):
             "price": float(self.price),
             "color": self.color,
             "img": self.img,
-            "all_available_dates": self.all_available_dates,
+            "unavailable_dates": self.unavailable_dates,
             "is_available": self.is_available
         }
 
@@ -141,8 +141,8 @@ def update_inventory(dress_id):
         dress.is_available = data['is_available']
 
         # also update available dates if provided
-        if 'all_available_dates' in data:
-            dress.all_available_dates = data['all_available_dates']
+        if 'unavailable_dates' in data:
+            dress.unavailable_dates = data['unavailable_dates']
 
         db.session.commit()
     except Exception as e:
@@ -184,7 +184,7 @@ def create_dress():
         price=data['price'],
         color=data['color'],
         img=data['img'],
-        all_available_dates=data.get('all_available_dates', []),
+        unavailable_dates=data.get('unavailable_dates', []),
         is_available=data.get('is_available', True)
     )
 

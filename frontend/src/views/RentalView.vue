@@ -112,6 +112,8 @@ const selectedDress = ref(null)
 
 onMounted(async () => {
   const dressId = route.params.dressId
+  rentForm.startDate = route.query.startDate || ''
+  rentForm.endDate = route.query.endDate || ''
   
   if (dressId) {
     // Fetch dress details from backend

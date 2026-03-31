@@ -10,8 +10,8 @@
       <h3>{{ dress.name }}</h3>
       <p class="meta">{{ dress.size }} • {{ dress.color }}</p>
       <p class="price">From ${{ dress.price }} / day</p>
-      <RouterLink :to="`/rental/${dress.dress_id}`" class="rent-link">Rent this dress</RouterLink>
-      <RouterLink :to="`/fitting/${dress.dress_id}`" class="rent-link">Book fitting for this dress</RouterLink>
+      <RouterLink :to="`/rentalavailability/${dress.dress_id}`" class="rent-link">Rent this dress</RouterLink>
+      <RouterLink :to="`/fittingavailability/${dress.dress_id}`" class="rent-link">Book fitting for this dress</RouterLink>
     </div>
   </article>
 </template>
