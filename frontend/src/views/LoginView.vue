@@ -95,7 +95,7 @@ async function handleLogin() {
     const data = await res.json()
     if (data.code === 200) {
       login(data.data)
-      const redirect = route.query.redirect || '/dresses'
+      const redirect = route.query.redirect || (data.data.role === 'employee' ? '/return' : '/dresses')
       router.push(redirect)
     } else {
       loginError.value = data.message || 'Login failed.'
