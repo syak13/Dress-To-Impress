@@ -1,8 +1,10 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import requests
 import os
 
 app = Flask(__name__)
+CORS(app)
 
 # ─── ATOMIC SERVICE URLS ──────────────────────────────────────────────────────
 INVENTORY_URL    = os.environ.get('INVENTORY_URL',    'http://localhost:5001')
@@ -117,6 +119,7 @@ def place_rental_order():
         }), 500
 
     invoice = invoice_data["data"]
+    client_secret = invoice.get("client_secret")
 
     # ── Step 7: Get customer information from Customer Service ────────────────
     try:
@@ -157,16 +160,17 @@ def place_rental_order():
     return jsonify({
         "code": 201,
         "data": {
-            "rental_id":    rental_id,
-            "invoice_id":   invoice["invoice_id"],
-            "customer_id":  customer_id,
+            "rental_id":     rental_id,
+            "invoice_id":    invoice["invoice_id"],
+            "customer_id":   customer_id,
             "customer_name": customer["name"],
-            "dress_id":     dress_id,
-            "dress_size":   dress_size,
-            "start_date":   start_date,
-            "end_date":     end_date,
-            "amount":       dress_price,
-            "status":       rental["status"]
+            "dress_id":      dress_id,
+            "dress_size":    dress_size,
+            "start_date":    start_date,
+            "end_date":      end_date,
+            "amount":        dress_price,
+            "status":        rental["status"],
+            "client_secret": client_secret
         }
     }), 201
 

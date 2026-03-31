@@ -9,6 +9,7 @@ import BookingFormView from '../views/BookingFormView.vue'
 import RentalFormView from '../views/RentalFormView.vue'
 import FittingAvailabilityView from '../views/FittingAvailabilityView.vue'
 import LoginView from '../views/LoginView.vue'
+import PaymentView from '../views/PaymentView.vue'
 
 const routes = [
   { path: '/', name: 'home', component: HomeView },
@@ -22,7 +23,8 @@ const routes = [
   { path: '/rentalavailability/:dressId', name: 'rentalavailability', component: RentalAvailabilityView, meta: { requiresAuth: true, role: 'customer' } },
   { path: '/bookingform/:dressId', name: 'bookingform', component: BookingFormView, meta: { requiresAuth: true, role: 'customer' } },
   { path: '/rentalform/:dressId', name: 'rentalform', component: RentalFormView, meta: { requiresAuth: true, role: 'customer' } },
-  { path: '/fittingavailability/:dressId', name: 'fittingavailability', component: FittingAvailabilityView, meta: { requiresAuth: true, role: 'customer' } }
+  { path: '/fittingavailability/:dressId', name: 'fittingavailability', component: FittingAvailabilityView, meta: { requiresAuth: true, role: 'customer' } },
+  { path: '/payment/:dressId', name: 'payment', component: PaymentView, meta: { requiresAuth: true, role: 'customer' } }
 ]
 
 const router = createRouter({

@@ -277,8 +277,8 @@ const handleRent = () => {
     router.push({
       path: `/payment/${selectedDress.value.dress_id}`,
       query: {
-        startDate: selectedStart.value,
-        endDate: selectedEnd.value
+        startDate: rentForm.startDate,
+        endDate: rentForm.endDate
       }
     })
   }
