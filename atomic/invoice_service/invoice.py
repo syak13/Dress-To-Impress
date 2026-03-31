@@ -1,8 +1,14 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from flask_cors import CORS
+import stripe
 import os
 
 app = Flask(__name__)
+CORS(app)
+
+stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
+
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
     'DBURI', 'mysql+mysqlconnector://root:root@localhost:3306/dress_rental'
 )
@@ -90,9 +96,6 @@ def get_by_rental_id(rental_id):
 # ─── CREATE INVOICE ───────────────────────────────────────────────────────────
 # Used by: Place Rental Order (UC3) step 6 → create RENTAL invoice
 #          Returning Service  (UC4) step 6 → create PENALTY invoice
-# Receives: { rental_id, amount, type }
-# Returns:  { invoice_id, stripe_id }
-# Note: Stripe integration to be added here later
 
 @app.route("/invoice", methods=['POST'])
 def create_invoice():
@@ -126,22 +129,24 @@ def create_invoice():
         db.session.rollback()
         return jsonify({"code": 500, "message": "An error occurred creating the invoice."}), 500
 
-    # ── Stripe integration placeholder ────────────────────────────────────────
-    # When ready, replace this block with actual Stripe API call:
-    #
-    # import stripe
-    # stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
-    # payment_intent = stripe.PaymentIntent.create(
-    #     amount=int(data['amount'] * 100),   # Stripe uses cents
-    #     currency='sgd',
-    #     metadata={"rental_id": data['rental_id']}
-    # )
-    # invoice.stripe_id = payment_intent['id']
-    # invoice.status    = 'PAID'
-    # db.session.commit()
+    # ── Stripe: create PaymentIntent ──────────────────────────────────────────
+    client_secret = None
+    try:
+        payment_intent = stripe.PaymentIntent.create(
+            amount=int(float(data['amount']) * 100),  # Stripe uses cents
+            currency='sgd',
+            metadata={"rental_id": data['rental_id'], "invoice_id": invoice.invoice_id}
+        )
+        invoice.stripe_id = payment_intent['id']
+        db.session.commit()
+        client_secret = payment_intent['client_secret']
+    except Exception as e:
+        print(f"[WARNING] Stripe PaymentIntent error: {str(e)}")
     # ─────────────────────────────────────────────────────────────────────────
 
-    return jsonify({"code": 201, "data": invoice.json()}), 201
+    response = invoice.json()
+    response['client_secret'] = client_secret
+    return jsonify({"code": 201, "data": response}), 201
 
 
 # ─── UPDATE INVOICE STATUS ────────────────────────────────────────────────────

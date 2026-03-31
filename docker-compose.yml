@@ -91,6 +91,7 @@ services:
         condition: service_healthy
     environment:
       - DBURI=mysql+mysqlconnector://root:root@mysql:3306/dress_rental
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
 
   return_assessment_service:
     build: ./atomic/return_assessment_service
