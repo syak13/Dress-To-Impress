@@ -20,17 +20,19 @@ class Customer(db.Model):
     customer_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String(255), nullable=False)
     email = db.Column(db.String(255), nullable=False, unique=True)
+    phone = db.Column(db.String(255), nullable=False, unique=True)
     password_hash = db.Column(db.String(255), nullable=True)
     role = db.Column(db.Enum('customer', 'employee'), nullable=False, default='customer')
 
-    def __init__(self, name, email, password_hash=None, role='customer'):
+    def __init__(self, name, email, phone, password_hash=None, role='customer'):
         self.name = name
         self.email = email
+        self.phone = phone
         self.password_hash = password_hash
         self.role = role
 
     def json(self):
-        return {"customer_id": self.customer_id, "name": self.name, "email": self.email, "role": self.role}
+        return {"customer_id": self.customer_id, "name": self.name, "email": self.email, "phone": self.phone, "role": self.role}
 
 
 @app.route("/customer")
@@ -155,6 +157,18 @@ def login_customer():
 
     return jsonify({"code": 200, "data": customer.json()}), 200
 
+@app.route("/customer/<int:customer_id>", methods=['PUT'])
+def update_customer(customer_id):
+    customer = db.session.scalar(db.select(Customer).filter_by(customer_id=customer_id))
+    if not customer:
+        return jsonify({"code": 404, "message": "Customer not found"}), 404
+    
+    data = request.get_json()
+    if 'phone' in data:
+        customer.phone = data['phone']
+    
+    db.session.commit()
+    return jsonify({"code": 200, "data": customer.json()})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

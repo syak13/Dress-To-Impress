@@ -11,67 +11,24 @@
   
         <div class="calendar-panel">
           <h3>Customer Details</h3>
-  
-          <!-- <div class="calendar-header">
-            <button type="button" class="nav-btn" @click="prevMonth">‹</button>
-            <h4>{{ currentMonthLabel }}</h4>
-            <button type="button" class="nav-btn" @click="nextMonth">›</button>
-          </div> -->
-  
-          <!-- <div class="weekday-row">
-            <span v-for="day in weekdays" :key="day">{{ day }}</span>
-          </div>
-  
-          <div class="calendar-grid">
-            <button
-              v-for="day in calendarDays"
-              :key="day.date"
-              type="button"
-              class="calendar-day"
-              :class="{
-                'other-month': !day.inCurrentMonth,
-                'unavailable': isUnavailable(day.date),
-                'selected': isSelected(day.date),
-                'in-range': isInRange(day.date)
-              }"
-              :disabled="isUnavailable(day.date)"
-              @click="selectDate(day.date)"
-            >
-              {{ day.dayNumber }}
-            </button>
-          </div> -->
-  
-          <!-- <div v-if="selectedStart && selectedEnd" class="selection-box">
-            <p><strong>Start:</strong> {{ selectedStart }}</p>
-            <p><strong>End:</strong> {{ selectedEnd }}</p>
-          </div> -->
-  
-          <!-- <button
-            v-if="selectedStart && selectedEnd"
-            type="button"
-            class="next-btn"
-            @click="goToRental"
-          >
-            Next
-          </button> -->
           <div class="form-group">
         <label>
           Customer Name
-          <input v-model="customerDetails.name" required />
+          <input required />
         </label>
       </div>
 
       <div class="form-group">
         <label>
           Phone Number
-          <input v-model="customerDetails.phone" required />
+          <input required />
         </label>
       </div>
 
       <div class="form-group">
         <label>
           Email
-        <input v-model="customerDetails.email" type="email" required />
+        <input required />
         </label>
       </div>
 
@@ -82,127 +39,7 @@
   </template>
   
   <script setup>
-//   import { ref, computed, onMounted } from 'vue'
-//   import { useRoute, useRouter } from 'vue-router'
-  
-//   const route = useRoute()
-//   const router = useRouter()
-  
-//   const selectedDress = ref(null)
-//   const selectedStart = ref('')
-//   const selectedEnd = ref('')
-//   const currentMonth = ref(new Date())
-  
-//   const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-  
-//   onMounted(async () => {
-//     const dressId = route.params.dressId
-//     if (!dressId) return
-  
-//     const res = await fetch(`http://localhost:5001/inventory/${dressId}`)
-//     const data = await res.json()
-  
-//     if (data.code === 200) {
-//       selectedDress.value = data.data
-//     }
-//   })
-  
-//   const currentMonthLabel = computed(() => {
-//     return currentMonth.value.toLocaleString('en-US', {
-//       month: 'long',
-//       year: 'numeric'
-//     })
-//   })
-  
-//   const calendarDays = computed(() => {
-//     const year = currentMonth.value.getFullYear()
-//     const month = currentMonth.value.getMonth()
-  
-//     const firstDayOfMonth = new Date(year, month, 1)
-//     const startDay = firstDayOfMonth.getDay()
-//     const gridStart = new Date(year, month, 1 - startDay)
-  
-//     const days = []
-  
-//     for (let i = 0; i < 42; i++) {
-//       const date = new Date(gridStart)
-//       date.setDate(gridStart.getDate() + i)
-  
-//       days.push({
-//         date: formatDate(date),
-//         dayNumber: date.getDate(),
-//         inCurrentMonth: date.getMonth() === month
-//       })
-//     }
-  
-//     return days
-//   })
-  
-//   function formatDate(date) {
-//     const year = date.getFullYear()
-//     const month = String(date.getMonth() + 1).padStart(2, '0')
-//     const day = String(date.getDate()).padStart(2, '0')
-//     return `${year}-${month}-${day}`
-//   }
-  
-//   function prevMonth() {
-//     const d = currentMonth.value
-//     currentMonth.value = new Date(d.getFullYear(), d.getMonth() - 1, 1)
-//   }
-  
-//   function nextMonth() {
-//     const d = currentMonth.value
-//     currentMonth.value = new Date(d.getFullYear(), d.getMonth() + 1, 1)
-//   }
-  
-//   function isUnavailable(dateStr) {
-//     return selectedDress.value?.unavailable_dates?.includes(dateStr) ?? false
-//   }
-  
-//   function selectDate(dateStr) {
-//     if (isUnavailable(dateStr)) return
-  
-//     if (!selectedStart.value || (selectedStart.value && selectedEnd.value)) {
-//       selectedStart.value = dateStr
-//       selectedEnd.value = ''
-//       return
-//     }
-  
-//     if (dateStr < selectedStart.value) {
-//       selectedEnd.value = selectedStart.value
-//       selectedStart.value = dateStr
-//     } else {
-//       selectedEnd.value = dateStr
-//     }
-  
-//     if (hasUnavailableBetween(selectedStart.value, selectedEnd.value)) {
-//       alert('Selected range includes unavailable dates.')
-//       selectedStart.value = ''
-//       selectedEnd.value = ''
-//     }
-//   }
-  
-//   function hasUnavailableBetween(start, end) {
-//     const current = new Date(start)
-//     const last = new Date(end)
-  
-//     while (current <= last) {
-//       const dateStr = formatDate(current)
-//       if (isUnavailable(dateStr)) return true
-//       current.setDate(current.getDate() + 1)
-//     }
-  
-//     return false
-//   }
-  
-//   function isSelected(dateStr) {
-//     return dateStr === selectedStart.value || dateStr === selectedEnd.value
-//   }
-  
-//   function isInRange(dateStr) {
-//     return selectedStart.value && selectedEnd.value &&
-//       dateStr > selectedStart.value && dateStr < selectedEnd.value
-//   }
+
 import { reactive, ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useRouter } from 'vue-router'
@@ -214,26 +51,16 @@ const activeTab = ref('rent')
 
 const selectedDress = ref(null)
 
-const customerDetails = reactive({ name: '', phone: '', email: '' })
-
 onMounted(async () => {
-  // Auto-fill customer info from login session
-  const stored = localStorage.getItem('dti_user')
-  if (stored) {
-    const user = JSON.parse(stored)
-    customerDetails.name = user.name || ''
-    customerDetails.email = user.email || ''
-  }
-
   const dressId = route.params.dressId
   rentForm.startDate = route.query.startDate || ''
   rentForm.endDate = route.query.endDate || ''
-
+  
   if (dressId) {
     // Fetch dress details from backend
     const res = await fetch(`http://localhost:5001/inventory/${dressId}`)
     const data = await res.json()
-
+    
     if (data.code === 200) {
       selectedDress.value = data.data
       // Auto-fill form
@@ -252,11 +79,6 @@ const rentForm = reactive({
   endDate: ''
 })
 
-// const returnForm = reactive({
-//   reference: '',
-//   returnDate: '',
-//   notes: ''
-// })
 
 const rentSubmitted = ref(false)
 const returnSubmitted = ref(false)
@@ -266,10 +88,6 @@ const handleRent = () => {
   // later: POST to backend
 }
 
-// const handleReturn = () => {
-//   returnSubmitted.value = true
-//   // later: POST to backend
-// }
   
   function goToPayment() {
     router.push({

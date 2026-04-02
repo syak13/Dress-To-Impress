@@ -1,225 +1,122 @@
 <template>
-    <section class="page">
-      <div class="availability-layout" v-if="selectedDress">
-        <div class="dress-panel">
-          <h3>Booking Details</h3>
-          <img :src="selectedDress.img" alt="" class="dress-img" />
-          <h2>{{ selectedDress.name }}</h2>
-          <p class="meta">{{ selectedDress.size }} • {{ selectedDress.color }}</p>
-          <p class="meta">Price: ${{ selectedDress.price }}/day</p>
-          <p class="meta">Start Date: {{ rentForm.startDate }}</p>
-          <p class="meta">End Date: {{ rentForm.endDate }}</p>
+  <section class="page">
+    <div class="payment-layout" v-if="selectedDress">
+      <!-- Dress Summary -->
+      <div class="summary-panel">
+        <h3>Booking Summary</h3>
+        <img :src="selectedDress.img" alt="" class="dress-img" />
+        <h2>{{ selectedDress.name }}</h2>
+        <p class="meta">{{ selectedDress.size }} • {{ selectedDress.color }}</p>
+        <div class="summary-row">
+          <span>Rental period</span>
+          <span>{{ formatDate(rentForm.startDate) }} → {{ formatDate(rentForm.endDate) }}</span>
         </div>
-  
-        <div class="calendar-panel">
-          <h3>Customer Details</h3>
-  
-          <!-- <div class="calendar-header">
-            <button type="button" class="nav-btn" @click="prevMonth">‹</button>
-            <h4>{{ currentMonthLabel }}</h4>
-            <button type="button" class="nav-btn" @click="nextMonth">›</button>
-          </div> -->
-  
-          <!-- <div class="weekday-row">
-            <span v-for="day in weekdays" :key="day">{{ day }}</span>
-          </div>
-  
-          <div class="calendar-grid">
-            <button
-              v-for="day in calendarDays"
-              :key="day.date"
-              type="button"
-              class="calendar-day"
-              :class="{
-                'other-month': !day.inCurrentMonth,
-                'unavailable': isUnavailable(day.date),
-                'selected': isSelected(day.date),
-                'in-range': isInRange(day.date)
-              }"
-              :disabled="isUnavailable(day.date)"
-              @click="selectDate(day.date)"
-            >
-              {{ day.dayNumber }}
-            </button>
-          </div> -->
-  
-          <!-- <div v-if="selectedStart && selectedEnd" class="selection-box">
-            <p><strong>Start:</strong> {{ selectedStart }}</p>
-            <p><strong>End:</strong> {{ selectedEnd }}</p>
-          </div> -->
-  
-          <!-- <button
-            v-if="selectedStart && selectedEnd"
-            type="button"
-            class="next-btn"
-            @click="goToRental"
-          >
-            Next
-          </button> -->
-          <div class="form-group">
-        <label>
-          Customer Name
-          <input v-model="customerDetails.name" required />
-        </label>
-      </div>
-
-      <div class="form-group">
-        <label>
-          Phone Number
-          <input v-model="customerDetails.phone" required />
-        </label>
-      </div>
-
-      <div class="form-group">
-        <label>
-          Email
-        <input v-model="customerDetails.email" type="email" required />
-        </label>
-      </div>
-
-      <button type="submit" @click="goToPayment">Proceed to payment</button>
+        <div class="summary-row">
+          <span>Price per day</span>
+          <span>${{ selectedDress.price }}</span>
+        </div>
+        <div class="summary-row total">
+          <span>Total ({{ rentalDays }} days)</span>
+          <span>${{ totalPrice }}</span>
         </div>
       </div>
-    </section>
-  </template>
-  
-  <script setup>
-//   import { ref, computed, onMounted } from 'vue'
-//   import { useRoute, useRouter } from 'vue-router'
-  
-//   const route = useRoute()
-//   const router = useRouter()
-  
-//   const selectedDress = ref(null)
-//   const selectedStart = ref('')
-//   const selectedEnd = ref('')
-//   const currentMonth = ref(new Date())
-  
-//   const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-  
-//   onMounted(async () => {
-//     const dressId = route.params.dressId
-//     if (!dressId) return
-  
-//     const res = await fetch(`http://localhost:5001/inventory/${dressId}`)
-//     const data = await res.json()
-  
-//     if (data.code === 200) {
-//       selectedDress.value = data.data
-//     }
-//   })
-  
-//   const currentMonthLabel = computed(() => {
-//     return currentMonth.value.toLocaleString('en-US', {
-//       month: 'long',
-//       year: 'numeric'
-//     })
-//   })
-  
-//   const calendarDays = computed(() => {
-//     const year = currentMonth.value.getFullYear()
-//     const month = currentMonth.value.getMonth()
-  
-//     const firstDayOfMonth = new Date(year, month, 1)
-//     const startDay = firstDayOfMonth.getDay()
-//     const gridStart = new Date(year, month, 1 - startDay)
-  
-//     const days = []
-  
-//     for (let i = 0; i < 42; i++) {
-//       const date = new Date(gridStart)
-//       date.setDate(gridStart.getDate() + i)
-  
-//       days.push({
-//         date: formatDate(date),
-//         dayNumber: date.getDate(),
-//         inCurrentMonth: date.getMonth() === month
-//       })
-//     }
-  
-//     return days
-//   })
-  
-//   function formatDate(date) {
-//     const year = date.getFullYear()
-//     const month = String(date.getMonth() + 1).padStart(2, '0')
-//     const day = String(date.getDate()).padStart(2, '0')
-//     return `${year}-${month}-${day}`
-//   }
-  
-//   function prevMonth() {
-//     const d = currentMonth.value
-//     currentMonth.value = new Date(d.getFullYear(), d.getMonth() - 1, 1)
-//   }
-  
-//   function nextMonth() {
-//     const d = currentMonth.value
-//     currentMonth.value = new Date(d.getFullYear(), d.getMonth() + 1, 1)
-//   }
-  
-//   function isUnavailable(dateStr) {
-//     return selectedDress.value?.unavailable_dates?.includes(dateStr) ?? false
-//   }
-  
-//   function selectDate(dateStr) {
-//     if (isUnavailable(dateStr)) return
-  
-//     if (!selectedStart.value || (selectedStart.value && selectedEnd.value)) {
-//       selectedStart.value = dateStr
-//       selectedEnd.value = ''
-//       return
-//     }
-  
-//     if (dateStr < selectedStart.value) {
-//       selectedEnd.value = selectedStart.value
-//       selectedStart.value = dateStr
-//     } else {
-//       selectedEnd.value = dateStr
-//     }
-  
-//     if (hasUnavailableBetween(selectedStart.value, selectedEnd.value)) {
-//       alert('Selected range includes unavailable dates.')
-//       selectedStart.value = ''
-//       selectedEnd.value = ''
-//     }
-//   }
-  
-//   function hasUnavailableBetween(start, end) {
-//     const current = new Date(start)
-//     const last = new Date(end)
-  
-//     while (current <= last) {
-//       const dateStr = formatDate(current)
-//       if (isUnavailable(dateStr)) return true
-//       current.setDate(current.getDate() + 1)
-//     }
-  
-//     return false
-//   }
-  
-//   function isSelected(dateStr) {
-//     return dateStr === selectedStart.value || dateStr === selectedEnd.value
-//   }
-  
-//   function isInRange(dateStr) {
-//     return selectedStart.value && selectedEnd.value &&
-//       dateStr > selectedStart.value && dateStr < selectedEnd.value
-//   }
-import { reactive, ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
-import { useRouter } from 'vue-router'
+
+      <!-- Customer + Payment Form -->
+      <div class="payment-panel">
+        <h3>Complete Your Rental</h3>
+
+        <!-- Customer Details Section -->
+        <div class="section-divider">
+          <h4>Customer Information</h4>
+        </div>
+
+        <div class="form-group">
+          <label>Name *</label>
+          <input v-model="customerDetails.name" placeholder="Jane Smith" required />
+        </div>
+
+        <div class="form-group">
+          <label>Email *</label>
+          <input v-model="customerDetails.email" type="email" placeholder="jane@example.com" required />
+        </div>
+
+        <div class="form-group">
+          <label>Phone *</label>
+          <input v-model="customerDetails.phone" placeholder="+65 9123 4567" required />
+        </div>
+
+        <!-- Payment Section -->
+        <div class="section-divider">
+          <h4>Payment Method</h4>
+        </div>
+
+        <div class="form-group">
+          <label>Name on card</label>
+          <input v-model="cardName" placeholder="Jane Smith" required />
+        </div>
+
+        <div class="form-group">
+          <label>Card details</label>
+          <div id="card-element" class="stripe-input"></div>
+          <p v-if="cardError" class="error-msg">{{ cardError }}</p>
+        </div>
+
+        <p v-if="apiError" class="error-msg">{{ apiError }}</p>
+
+        <button 
+          type="submit" 
+          class="pay-btn" 
+          :disabled="loading || !isFormValid"
+          @click.prevent="handlePayment"
+        >
+          {{ loading ? 'Processing...' : `Pay $${totalPrice} to Confirm Rental` }}
+        </button>
+
+        <!-- Success State -->
+        <div v-if="paymentSuccess" class="success-box">
+          <h4>🎉 Rental Confirmed!</h4>
+          <p>Your dress is reserved. You'll receive a confirmation email shortly.</p>
+          <p><strong>Rental ID:</strong> {{ confirmedRentalId }}</p>
+          <RouterLink to="/" class="back-home-btn">
+            Back to Dresses
+          </RouterLink>
+        </div>
+      </div>
+    </div>
+
+    <div v-else class="loading">
+      Loading your booking...
+    </div>
+  </section>
+</template>
+
+<script setup>
+import { reactive, ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { useRoute, RouterLink } from 'vue-router'
+import { loadStripe } from '@stripe/stripe-js'
 
 const route = useRoute()
-const router = useRouter()
-
-const activeTab = ref('rent')
 
 const selectedDress = ref(null)
-
 const customerDetails = reactive({ name: '', phone: '', email: '' })
+const rentForm = reactive({ startDate: '', endDate: '' })
+const cardName = ref('')
+
+const cardError = ref('')
+const apiError = ref('')
+const loading = ref(false)
+const paymentSuccess = ref(false)
+const confirmedRentalId = ref(null)
+
+let stripe = null
+let cardElement = null
 
 onMounted(async () => {
-  // Auto-fill customer info from login session
+  // Pre-fill dates from availability selection
+  rentForm.startDate = route.query.startDate || ''
+  rentForm.endDate = route.query.endDate || ''
+
+  // Auto-fill customer info from localStorage (login session)
   const stored = localStorage.getItem('dti_user')
   if (stored) {
     const user = JSON.parse(stored)
@@ -227,250 +124,265 @@ onMounted(async () => {
     customerDetails.email = user.email || ''
   }
 
+  // Load dress details
   const dressId = route.params.dressId
-  rentForm.startDate = route.query.startDate || ''
-  rentForm.endDate = route.query.endDate || ''
-
   if (dressId) {
-    // Fetch dress details from backend
     const res = await fetch(`http://localhost:5001/inventory/${dressId}`)
     const data = await res.json()
-    
     if (data.code === 200) {
       selectedDress.value = data.data
-      // Auto-fill form
-      rentForm.dress = `${selectedDress.value.dress_id} - ${selectedDress.value.name}`
-      rentForm.size = `${selectedDress.value.size}`
-      rentForm.price = `$${selectedDress.value.price}`
-      rentForm.img = `${selectedDress.value.img}`
     }
   }
+
+  // Initialize Stripe
+  stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
+  const elements = stripe.elements()
+  cardElement = elements.create('card', {
+    style: {
+      base: {
+        fontSize: '16px',
+        color: '#1e3a5f',
+        fontFamily: 'inherit',
+        '::placeholder': { color: '#94a3b8' }
+      }
+    }
+  })
+  cardElement.mount('#card-element')
+  cardElement.on('change', (e) => {
+    cardError.value = e.error ? e.error.message : ''
+  })
 })
 
-const rentForm = reactive({
-  name: '',
-  dress: '',
-  startDate: '',
-  endDate: ''
+onBeforeUnmount(() => {
+  if (cardElement) cardElement.destroy()
 })
 
-// const returnForm = reactive({
-//   reference: '',
-//   returnDate: '',
-//   notes: ''
-// })
+const rentalDays = computed(() => {
+  if (!rentForm.startDate || !rentForm.endDate) return 0
+  const start = new Date(rentForm.startDate)
+  const end = new Date(rentForm.endDate)
+  return Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1
+})
 
-const rentSubmitted = ref(false)
-const returnSubmitted = ref(false)
+const totalPrice = computed(() => {
+  if (!selectedDress.value || !rentalDays.value) return 0
+  return (parseFloat(selectedDress.value.price) * rentalDays.value).toFixed(2)
+})
 
-const handleRent = () => {
-  rentSubmitted.value = true
-  // later: POST to backend
+const isFormValid = computed(() => {
+  return customerDetails.name && 
+         customerDetails.email && 
+         customerDetails.phone && 
+         rentForm.startDate && 
+         rentForm.endDate && 
+         cardName.value
+})
+
+const formatDate = (dateStr) => {
+  if (!dateStr) return ''
+  return new Date(dateStr).toLocaleDateString('en-SG', {
+    weekday: 'short',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  })
 }
 
-// const handleReturn = () => {
-//   returnSubmitted.value = true
-//   // later: POST to backend
-// }
-  
-  function goToPayment() {
-    router.push({
-      path: `/payment/${selectedDress.value.dress_id}`,
-      query: {
-        startDate: rentForm.startDate,
-        endDate: rentForm.endDate
+async function handlePayment() {
+  loading.value = true
+  apiError.value = ''
+  cardError.value = ''
+
+  const stored = localStorage.getItem('dti_user')
+  const user = stored ? JSON.parse(stored) : null
+
+  if (!user) {
+    apiError.value = 'Please log in to complete your rental.'
+    loading.value = false
+    return
+  }
+
+  try {
+    const orderRes = await fetch('http://localhost:5011/rental-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customer_id: user.customer_id,
+        dress_id: selectedDress.value.dress_id,
+        start_date: rentForm.startDate,
+        end_date: rentForm.endDate,
+        customer_name: customerDetails.name,
+        customer_email: customerDetails.email,
+        customer_phone: customerDetails.phone,
+        total_amount: parseFloat(totalPrice.value)
+      })
+    })
+
+    const orderJson = await orderRes.json()
+
+    if (orderJson.code !== 201) {
+      apiError.value = orderJson.message || 'Failed to create rental order.'
+      loading.value = false
+      return
+    }
+
+    const { client_secret, invoice_id, rental_id } = orderJson.data
+
+    const { error, paymentIntent } = await stripe.confirmCardPayment(client_secret, {
+      payment_method: {
+        card: cardElement,
+        billing_details: {
+          name: cardName.value,
+          email: customerDetails.email,
+          phone: customerDetails.phone
+        }
       }
     })
-  }
-  </script>
-  
-  <style scoped>
-  .page {
-    max-width: 1100px;
-    margin: 3rem auto;
-    padding: 0 1rem;
-  }
-  
-  .availability-layout {
-    display: grid;
-    grid-template-columns: 320px 1fr;
-    gap: 2rem;
-    align-items: start;
-  }
-  
-  .dress-panel,
-  .calendar-panel {
-    background: rgba(255, 255, 255, 0.9);
-    backdrop-filter: blur(20px);
-    padding: 2rem;
-    border-radius: 24px;
-    border: 1px solid rgba(255, 154, 198, 0.2);
-    box-shadow:
-      0 20px 40px rgba(255, 154, 198, 0.15),
-      0 0 0 1px rgba(255, 255, 255, 0.9);
-    position: relative;
-    overflow: hidden;
-  }
-  
-  .dress-panel::before,
-  .calendar-panel::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: var(--gradient-bg);
-  }
-  
-  .dress-img {
-    width: 100%;
-    max-height: 360px;
-    object-fit: cover;
-    border-radius: 18px;
-    margin-bottom: 1.25rem;
-  }
-  
-  h2 {
-    font-size: 1.8rem;
-    background: var(--gradient-bg);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    margin-bottom: 0.75rem;
-    font-weight: 800;
-  }
-  
-  h3 {
-    color: var(--dark-blue);
-    font-size: 1.2rem;
-    font-weight: 700;
-    margin: 0 0 1.25rem 0;
-    text-align: center;
-  }
-  
-  h4 {
-    color: var(--dark-blue);
-    font-size: 1rem;
-    font-weight: 700;
-  }
-  
-  .meta,
-  .price {
-    color: var(--dark-blue);
-    margin-bottom: 0.5rem;
-  }
-  
-  .price {
-    font-weight: 700;
-  }
-  
-  .calendar-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-  }
-  
-  .nav-btn {
-    width: 42px;
-    height: 42px;
-    border: none;
-    border-radius: 12px;
-    background: var(--gradient-bg);
-    color: white;
-    font-size: 1.2rem;
-    font-weight: 700;
-    cursor: pointer;
-  }
-  
-  .weekday-row,
-  .calendar-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 0.45rem;
-  }
-  
-  .weekday-row {
-    margin-bottom: 0.5rem;
-  }
-  
-  .weekday-row span {
-    text-align: center;
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: #64748b;
-  }
-  
-  .calendar-day {
-    aspect-ratio: 1 / 1;
-    border: none;
-    border-radius: 12px;
-    background: #fff;
-    color: var(--dark-blue);
-    font-weight: 600;
-    cursor: pointer;
-    box-shadow: inset 0 0 0 1px #e8eaf6;
-  }
-  
-  .calendar-day.other-month {
-    opacity: 0.35;
-  }
-  
-  .calendar-day.unavailable {
-    background: #e5e7eb;
-    color: #94a3b8;
-    cursor: not-allowed;
-    box-shadow: inset 0 0 0 1px #d1d5db;
-  }
-  
-  .calendar-day.selected {
-    background: var(--gradient-bg);
-    color: white;
-    box-shadow: none;
-  }
-  
-  .calendar-day.in-range {
-    background: rgba(255, 154, 198, 0.18);
-    color: var(--dark-blue);
-  }
-  
-  .selection-box {
-    margin-top: 1.25rem;
-    padding: 1rem;
-    border-radius: 14px;
-    background: rgba(255, 154, 198, 0.1);
-    border: 1px solid rgba(255, 154, 198, 0.2);
-  }
-  
-  .next-btn {
-    width: 100%;
-    padding: 1rem;
-    margin-top: 1rem;
-    background: var(--gradient-bg);
-    color: white;
-    border: none;
-    border-radius: 16px;
-    font-size: 1rem;
-    font-weight: 700;
-    cursor: pointer;
-    box-shadow: 0 10px 30px rgba(255, 154, 198, 0.4);
-  }
-  
-  @media (max-width: 900px) {
-    .availability-layout {
-      grid-template-columns: 1fr;
-    }
-  }
 
-  .form-group {
-  margin-bottom: 1.8rem;
-  position: relative;
-  justify-content: center;
+    if (error) {
+      cardError.value = error.message
+      loading.value = false
+      return
+    }
+
+    if (paymentIntent.status === 'succeeded') {
+      await fetch(`http://localhost:5005/invoice/${invoice_id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'PAID',
+          stripe_id: paymentIntent.id
+        })
+      })
+
+      confirmedRentalId.value = rental_id
+      paymentSuccess.value = true
+    }
+  } catch (e) {
+    apiError.value = 'Payment failed. Please try again.'
+    console.error(e)
+  } finally {
+    loading.value = false
+  }
 }
 
-input,
-textarea,
-select {
+
+</script>
+
+<style scoped>
+.page {
+  max-width: 1100px;
+  margin: 3rem auto;
+  padding: 0 1rem;
+}
+
+.payment-layout {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+.summary-panel,
+.payment-panel {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(20px);
+  padding: 2.5rem;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 154, 198, 0.2);
+  box-shadow: 
+    0 20px 40px rgba(255, 154, 198, 0.15),
+    0 0 0 1px rgba(255, 255, 255, 0.9);
+  position: relative;
+  overflow: hidden;
+}
+
+.summary-panel::before,
+.payment-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--gradient-bg);
+}
+
+.dress-img {
+  width: 100%;
+  max-height: 300px;
+  object-fit: cover;
+  border-radius: 16px;
+  margin-bottom: 1.25rem;
+}
+
+h2 {
+  font-size: 1.5rem;
+  background: var(--gradient-bg);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 800;
+  margin-bottom: 0.75rem;
+}
+
+h3 {
+  color: var(--dark-blue);
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 0 0 1.5rem 0;
+  text-align: center;
+}
+
+h4 {
+  color: var(--dark-blue);
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0 0 1.25rem 0;
+}
+
+.meta {
+  color: var(--dark-blue);
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  color: var(--dark-blue);
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgba(255, 154, 198, 0.15);
+  font-size: 0.95rem;
+}
+
+.summary-row.total {
+  font-weight: 800;
+  font-size: 1.1rem;
+  border-bottom: none;
+  margin-top: 0.75rem;
+  padding-top: 1rem;
+  border-top: 2px solid rgba(255, 154, 198, 0.3);
+}
+
+.section-divider {
+  border-bottom: 1px solid rgba(255, 154, 198, 0.2);
+  padding-bottom: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+label {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--dark-blue);
+  margin-bottom: 0.5rem;
+}
+
+input {
   width: 100%;
   padding: 1rem 1.2rem;
   border: 2px solid #e8eaf6;
@@ -481,13 +393,28 @@ select {
   box-sizing: border-box;
 }
 
-button[type="submit"] {
+input:focus {
+  outline: none;
+  border-color: var(--primary-pink);
+  background: white;
+  box-shadow: 0 0 0 4px rgba(255, 154, 198, 0.15);
+  transform: translateY(-1px);
+}
+
+.stripe-input {
+  padding: 1rem 1.2rem;
+  border: 2px solid #e8eaf6;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.pay-btn {
   width: 100%;
-  padding: 1.2rem;
+  padding: 1.25rem;
   background: var(--gradient-bg);
   color: white;
   border: none;
-  border-radius: 16px;
+  border-radius: 20px;
   font-size: 1.1rem;
   font-weight: 700;
   cursor: pointer;
@@ -495,24 +422,68 @@ button[type="submit"] {
   margin-top: 1rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  box-shadow: 0 10px 30px rgba(255, 154, 198, 0.4);
+  box-shadow: 0 12px 35px rgba(255, 154, 198, 0.4);
 }
 
-button[type="submit"]:hover {
+.pay-btn:hover:not(:disabled) {
   transform: translateY(-3px);
-  box-shadow: 0 20px 40px rgba(255, 154, 198, 0.5);
+  box-shadow: 0 25px 50px rgba(255, 154, 198, 0.5);
 }
 
-button[type="submit"]:active {
-  transform: translateY(-1px);
+.pay-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
 }
 
-label {
-  display: block;
-  font-size: 0.95rem;
-  font-weight: 600;
+.error-msg {
+  color: #e53e3e;
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+  background: rgba(229, 62, 62, 0.1);
+  padding: 0.75rem;
+  border-radius: 10px;
+  border-left: 3px solid #e53e3e;
+}
+
+.success-box {
+  text-align: center;
+  padding: 2.5rem;
+  background: rgba(72, 187, 120, 0.15);
+  border: 2px solid rgba(72, 187, 120, 0.3);
+  border-radius: 20px;
+  margin-top: 1rem;
   color: var(--dark-blue);
-  margin-bottom: 0.5rem;
 }
-  </style>
-  
+
+.success-box h4 {
+  color: #22c55e;
+  font-size: 1.3rem;
+  margin-bottom: 0.75rem;
+}
+
+.back-home-btn {
+  display: inline-block;
+  margin-top: 1.5rem;
+  padding: 0.75rem 2rem;
+  background: var(--gradient-bg);
+  color: white;
+  text-decoration: none;
+  border-radius: 16px;
+  font-weight: 600;
+}
+
+.loading {
+  text-align: center;
+  padding: 6rem 2rem;
+  color: var(--dark-blue);
+  font-size: 1.1rem;
+}
+
+@media (max-width: 900px) {
+  .payment-layout {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+}
+</style>
