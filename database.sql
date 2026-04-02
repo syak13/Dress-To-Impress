@@ -82,7 +82,7 @@ CREATE TABLE return_assessments (
     assessment_id INT AUTO_INCREMENT PRIMARY KEY,
     rental_id INT NOT NULL,
     dress_id INT NOT NULL,
-    assessment_date DATETIME NOT NULL,
+    return_date DATETIME NOT NULL,
     is_late BOOLEAN DEFAULT FALSE,
     is_damaged BOOLEAN DEFAULT FALSE,
     damage_description TEXT,
@@ -145,7 +145,7 @@ INSERT INTO rentals (customer_id, dress_id, start_date, end_date, status) VALUES
 (2, 202, '2026-03-18', '2026-03-22', 'ACTIVE'),
 (3, 203, '2026-02-01', '2026-02-05', 'COMPLETED');
 
-INSERT INTO return_assessments (rental_id, dress_id, assessment_date, is_late, is_damaged, damage_description) VALUES
+INSERT INTO return_assessments (rental_id, dress_id, return_date, is_late, is_damaged, damage_description) VALUES
 (1, 201, '2026-03-14 15:00:00', FALSE, FALSE, NULL),
 (3, 203, '2026-02-07 10:00:00', TRUE, TRUE, 'Wine stain on the hem and returned 2 days late.');
 
