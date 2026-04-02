@@ -30,6 +30,7 @@ CREATE TABLE customers (
     customer_id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     email VARCHAR(190) NOT NULL UNIQUE,
+    phone VARCHAR(255),
     password_hash VARCHAR(255),
     role ENUM('customer', 'employee') DEFAULT 'customer'
 );
@@ -60,6 +61,7 @@ CREATE TABLE notifications (
     notification_id INT AUTO_INCREMENT PRIMARY KEY,
     customer_id INT NOT NULL,
     email VARCHAR(255) NOT NULL,
+    phone VARCHAR(255) NOT NULL,
     message TEXT NOT NULL,
     status ENUM('PENDING', 'SENT', 'FAILED') DEFAULT 'PENDING',
     FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
@@ -113,12 +115,12 @@ CREATE TABLE invoices (
 -- INSERT DATA
 -- =========================
 
-INSERT INTO customers (name, email, password_hash, role) VALUES
-('Alice Smith', 'alice@user.com', 'user123', 'customer'),
-('Bob Jones', 'bob@user.com', 'user123', 'customer'),
-('Chloe Davis', 'chloe@user.com', 'user123', 'customer'),
-('Sarah Employee', 'sarah@staff.com', 'staff123', 'employee'),
-('James Employee', 'james@staff.com', 'staff123', 'employee');
+INSERT INTO customers (name, email, phone, password_hash, role) VALUES
+('Alice Smith', 'alice@user.com', '', 'user123', 'customer'),
+('Bob Jones', 'bob@user.com', '', 'user123', 'customer'),
+('Chloe Davis', 'chloe@user.com', '', 'user123', 'customer'),
+('Sarah Employee', 'sarah@staff.com', '', 'staff123', 'employee'),
+('James Employee', 'james@staff.com', '', 'staff123', 'employee');
 
 INSERT INTO inventory (dress_id, name, size, price, color, img, unavailable_dates, is_available) VALUES
 (101, 'Blush Satin Gown', 'S',   80.00, 'Pink', '/images/dress_pink.jpeg', '["2026-04-16","2026-04-17","2026-04-18","2026-04-19"]', TRUE),
@@ -133,10 +135,10 @@ INSERT INTO bookings (customer_id, dress_id, calendar_event_id, slot_datetime, s
 (2, 102, 'evt_abc456', '2026-05-20 14:30:00', 'CONFIRMED'),
 (3, 103, 'evt_def789', '2026-03-01 09:00:00', 'CANCELLED');
 
-INSERT INTO notifications (customer_id, email, message, status) VALUES
-(1, 'alice@example.com', 'Your fitting is confirmed for April 15.', 'SENT'),
-(2, 'bob@example.com', 'Reminder: Upcoming appointment next month.', 'PENDING'),
-(3, 'chloe@example.com', 'Your booking has been successfully cancelled.', 'SENT');
+INSERT INTO notifications (customer_id, email, phone, message, status) VALUES
+(1, 'alice@example.com', '', 'Your fitting is confirmed for April 15.', 'SENT'),
+(2, 'bob@example.com', '', 'Reminder: Upcoming appointment next month.', 'PENDING'),
+(3, 'chloe@example.com', '', 'Your booking has been successfully cancelled.', 'SENT');
 
 INSERT INTO rentals (customer_id, dress_id, start_date, end_date, status) VALUES
 (1, 201, '2026-03-10', '2026-03-14', 'COMPLETED'),
