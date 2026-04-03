@@ -1,8 +1,12 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime
+from flask_cors import CORS
 import os
 
 app = Flask(__name__)
+CORS(app)
+
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
     'DBURI', 'mysql+mysqlconnector://root:root@localhost:3306/dress_rental'
 )
@@ -17,7 +21,7 @@ class Rental(db.Model):
     dress_id    = db.Column(db.Integer, nullable=False)
     start_date  = db.Column(db.Date, nullable=False)
     end_date    = db.Column(db.Date, nullable=False)
-    status      = db.Column(db.String(20), default='ACTIVE')
+    status      = db.Column(db.String(30), default='PENDING')
 
     def json(self):
         return {
@@ -33,17 +37,22 @@ class Rental(db.Model):
 @app.route("/rental", methods=['POST'])
 def create_rental():
     data = request.get_json()
-
     for field in ['customer_id', 'dress_id', 'start_date', 'end_date']:
         if field not in data:
             return jsonify({"code": 400, "message": f"Missing required field: {field}"}), 400
             
+    try:
+        start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()
+        end_date   = datetime.strptime(data['end_date'],   '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify({"code": 400, "message": "Invalid date format. Use YYYY-MM-DD."}), 400
+                
     rental = Rental(
         customer_id=data['customer_id'],
         dress_id=data['dress_id'],
-        start_date=data['start_date'],
-        end_date=data['end_date'],
-        status='ACTIVE'
+        start_date=start_date,
+        end_date=end_date,
+        status=data.get('status', 'PENDING')
     )
 
     try:
@@ -85,4 +94,4 @@ def update_rental(rental_id):
     return jsonify({"code": 200, "data": rental.json()}), 200
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5004, debug=True)
+    app.run(host='0.0.0.0', port=5004, debug=False)
