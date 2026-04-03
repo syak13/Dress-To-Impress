@@ -34,7 +34,6 @@ def place_rental_order():
     {
         "customer_id": 1,
         "dress_id": 201,
-        "size": "S",
         "start_date": "2026-06-01",
         "end_date": "2026-06-05"
     }
@@ -61,18 +60,20 @@ def place_rental_order():
                 "customer_id": customer_id,
                 "dress_id":    dress_id,
                 "start_date":  start_date,
-                "end_date":    end_date
+                "end_date":    end_date,
+                "status":      "PENDING"
             }
         )
-        rental_data = rental_response.json()
     except Exception as e:
         return jsonify({"code": 500, "message": f"Rental service error: {str(e)}"}), 500
 
     if rental_response.status_code != 201:
         return jsonify({
             "code": 500,
-            "message": "Failed to create rental record."
+            "message": f"Failed to create rental record. Status: {rental_response.status_code}, Response: {rental_response.text}"
         }), 500
+    
+    rental_data = rental_response.json()
 
     # ── Step 3: Get rental_id back ────────────────────────────────────────────
     rental    = rental_data["data"]
@@ -176,4 +177,4 @@ def place_rental_order():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5011, debug=True)
+    app.run(host='0.0.0.0', port=5011, debug=False)

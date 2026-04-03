@@ -32,17 +32,17 @@
 
         <div class="form-group">
           <label>Name *</label>
-          <input v-model="customerDetails.name" placeholder="Jane Smith" required />
+          <input v-model="customerDetails.name" placeholder="Fill in your name" required />
         </div>
 
         <div class="form-group">
           <label>Email *</label>
-          <input v-model="customerDetails.email" type="email" placeholder="jane@example.com" required />
+          <input v-model="customerDetails.email" type="email" placeholder="Fill in your email" required />
         </div>
 
         <div class="form-group">
           <label>Phone *</label>
-          <input v-model="customerDetails.phone" placeholder="+65 9123 4567" required />
+          <input v-model="customerDetails.phone" placeholder="Fill in your number" required />
         </div>
 
         <!-- Payment Section -->
@@ -88,10 +88,20 @@
       Loading your booking...
     </div>
   </section>
+
+  <!-- Error Popup -->
+  <div v-if="showErrorPopup" class="popup-overlay" @click.self="showErrorPopup = false">
+    <div class="popup-box">
+      <div class="popup-icon">✕</div>
+      <h4>Payment Unsuccessful</h4>
+      <p>{{ popupMessage }}</p>
+      <button class="popup-btn" @click="showErrorPopup = false">Try Again</button>
+    </div>
+  </div>
 </template>
 
 <script setup>
-import { reactive, ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { reactive, ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import { loadStripe } from '@stripe/stripe-js'
 
@@ -107,6 +117,8 @@ const apiError = ref('')
 const loading = ref(false)
 const paymentSuccess = ref(false)
 const confirmedRentalId = ref(null)
+const showErrorPopup = ref(false)
+const popupMessage = ref('')
 
 let stripe = null
 let cardElement = null
@@ -122,6 +134,7 @@ onMounted(async () => {
     const user = JSON.parse(stored)
     customerDetails.name = user.name || ''
     customerDetails.email = user.email || ''
+    customerDetails.phone = user.phone || ''
   }
 
   // Load dress details
@@ -131,6 +144,7 @@ onMounted(async () => {
     const data = await res.json()
     if (data.code === 200) {
       selectedDress.value = data.data
+      await nextTick() // wait for v-if="selectedDress" to render #card-element
     }
   }
 
@@ -190,18 +204,11 @@ const formatDate = (dateStr) => {
 
 async function handlePayment() {
   loading.value = true
-  apiError.value = ''
-  cardError.value = ''
 
-  const stored = localStorage.getItem('dti_user')
-  const user = stored ? JSON.parse(stored) : null
+  const user = JSON.parse(localStorage.getItem('dti_user'))
 
-  if (!user) {
-    apiError.value = 'Please log in to complete your rental.'
-    loading.value = false
-    return
-  }
-
+  // Step 1: Create rental order (rental starts as PENDING)
+  let orderData
   try {
     const orderRes = await fetch('http://localhost:5011/rental-order', {
       method: 'POST',
@@ -210,60 +217,68 @@ async function handlePayment() {
         customer_id: user.customer_id,
         dress_id: selectedDress.value.dress_id,
         start_date: rentForm.startDate,
-        end_date: rentForm.endDate,
-        customer_name: customerDetails.name,
-        customer_email: customerDetails.email,
-        customer_phone: customerDetails.phone,
-        total_amount: parseFloat(totalPrice.value)
+        end_date: rentForm.endDate
       })
     })
-
     const orderJson = await orderRes.json()
-
     if (orderJson.code !== 201) {
-      apiError.value = orderJson.message || 'Failed to create rental order.'
+      popupMessage.value = 'We could not process your booking at this time. Please try again shortly.'
+      showErrorPopup.value = true
       loading.value = false
       return
     }
-
-    const { client_secret, invoice_id, rental_id } = orderJson.data
-
-    const { error, paymentIntent } = await stripe.confirmCardPayment(client_secret, {
-      payment_method: {
-        card: cardElement,
-        billing_details: {
-          name: cardName.value,
-          email: customerDetails.email,
-          phone: customerDetails.phone
-        }
-      }
-    })
-
-    if (error) {
-      cardError.value = error.message
-      loading.value = false
-      return
-    }
-
-    if (paymentIntent.status === 'succeeded') {
-      await fetch(`http://localhost:5005/invoice/${invoice_id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: 'PAID',
-          stripe_id: paymentIntent.id
-        })
-      })
-
-      confirmedRentalId.value = rental_id
-      paymentSuccess.value = true
-    }
+    orderData = orderJson.data
   } catch (e) {
-    apiError.value = 'Payment failed. Please try again.'
-    console.error(e)
-  } finally {
+    popupMessage.value = 'Unable to reach the server. Please check your connection and try again.'
+    showErrorPopup.value = true
     loading.value = false
+    return
   }
+
+  const { client_secret, invoice_id, rental_id } = orderData
+
+  // Step 2: Confirm payment with Stripe
+  const { error, paymentIntent } = await stripe.confirmCardPayment(client_secret, {
+    payment_method: {
+      card: cardElement,
+      billing_details: {
+        name: cardName.value,
+        email: customerDetails.email,
+        phone: customerDetails.phone
+      }
+    }
+  })
+
+  if (error) {
+    // Mark rental as ERROR
+    await fetch(`http://localhost:5004/rental/${rental_id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'ERROR' })
+    })
+    popupMessage.value = error.message
+    showErrorPopup.value = true
+    loading.value = false
+    return
+  }
+
+  // Step 3: Payment succeeded — update invoice + rental
+  if (paymentIntent.status === 'succeeded') {
+    await fetch(`http://localhost:5005/invoice/${invoice_id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'PAID', stripe_id: paymentIntent.id })
+    })
+    await fetch(`http://localhost:5004/rental/${rental_id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'ACTIVE' })
+    })
+    confirmedRentalId.value = rental_id
+    paymentSuccess.value = true
+  }
+
+  loading.value = false
 }
 
 
@@ -478,6 +493,65 @@ input:focus {
   padding: 6rem 2rem;
   color: var(--dark-blue);
   font-size: 1.1rem;
+}
+
+.popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.popup-box {
+  background: white;
+  border-radius: 24px;
+  padding: 2.5rem 2rem;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.2);
+}
+
+.popup-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(229, 62, 62, 0.1);
+  color: #e53e3e;
+  font-size: 1.5rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.25rem;
+}
+
+.popup-box h4 {
+  color: var(--dark-blue);
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+}
+
+.popup-box p {
+  color: #64748b;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+}
+
+.popup-btn {
+  padding: 0.85rem 2.5rem;
+  background: var(--gradient-bg);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 @media (max-width: 900px) {

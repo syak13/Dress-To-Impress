@@ -17,10 +17,11 @@ groq_client = Groq(api_key=os.getenv('GROQ_API_KEY'))
 
 # Database config
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
-    'DBURI', 'mysql+mysqlconnector://root@localhost:3306/dress_rental'
+    'DBURI', 'mysql+mysqlconnector://root:root@mysql:3306/dress_rental'
 )
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_recycle': 299}
+app.config['TRUSTED_HOSTS'] = None
 db = SQLAlchemy(app)
 
 # ── Models ─────────────────────────────────────────────
@@ -247,4 +248,4 @@ def create_assessment():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5006, debug=True)
+    app.run(host="0.0.0.0", port=5006, debug=False)
