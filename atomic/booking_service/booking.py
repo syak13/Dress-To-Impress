@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime
 import os
 
 app = Flask(__name__)
@@ -8,6 +9,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
 )
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_recycle': 299}
+app.config['TRUSTED_HOSTS'] = None
 
 db = SQLAlchemy(app)
 
@@ -115,10 +117,11 @@ def create_booking():
                 "message": f"Missing required field: {field}"
             }), 400
 
+    slot_dt = datetime.strptime(data['slot_datetime'], "%Y-%m-%d %H:%M:%S")
     booking = Booking(
         customer_id=data['customer_id'],
         dress_id=data['dress_id'],
-        slot_datetime=data['slot_datetime'],
+        slot_datetime=slot_dt,
         calendar_event_id=data.get('calendar_event_id', None),
         status='CONFIRMED'
     )
