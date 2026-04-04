@@ -25,7 +25,7 @@
         <form v-else @submit.prevent="handlePayment">
           <div class="form-group">
             <label>Name on card</label>
-            <input v-model="cardName" placeholder="Jane Smith" required />
+            <input v-model="cardName" placeholder="Fill in your name" required />
           </div>
 
           <div class="form-group">

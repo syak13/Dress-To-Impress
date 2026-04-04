@@ -4,32 +4,16 @@ import os
 
 app = Flask(__name__)
 
-# ─── ATOMIC SERVICE URLS ──────────────────────────────────────────────────────
-# In Docker, these use container names defined in docker-compose.yml
-# Locally, use localhost with the respective ports
-
-INVENTORY_URL     = os.environ.get('INVENTORY_URL',     'http://localhost:5001')
-BOOKING_URL       = os.environ.get('BOOKING_URL',       'http://localhost:5002')
-CUSTOMER_URL      = os.environ.get('CUSTOMER_URL',      'http://localhost:5000')
-NOTIFICATION_URL  = os.environ.get('NOTIFICATION_URL',  'http://localhost:5003')
+INVENTORY_URL    = os.environ.get('INVENTORY_URL',    'http://inventory_service:5001')
+BOOKING_URL      = os.environ.get('BOOKING_URL',      'http://booking_service:5002')
+CUSTOMER_URL     = os.environ.get('CUSTOMER_URL',     'http://customer_service:5000')
+NOTIFICATION_URL = os.environ.get('NOTIFICATION_URL', 'http://notification_service:5003')
 
 
-# ─── UC2: SCHEDULE A DRESS FITTING APPOINTMENT ───────────────────────────────
-#
-# Flow:
-#   1. GET  available dresses        → Inventory Service
-#   2. GET  dress information        → Inventory Service
-#   3. GET  customer information     → Customer Service
-#   4. POST book timeslot            → Booking Service
-#   5. POST send confirmation        → Notification Service
-#   6. Return booking confirmation   → UI
-
-
-# Step 1 — Get all available dresses (for UI to display fitting slots)
 @app.route("/fitting/available", methods=['GET'])
 def get_available_dresses():
     try:
-        response = requests.get(f"{INVENTORY_URL}/inventory/available")
+        response = requests.get(f"{INVENTORY_URL}/inventory/available", timeout=5)
         data = response.json()
     except Exception as e:
         return jsonify({
@@ -45,22 +29,25 @@ def get_available_dresses():
 
     return jsonify({
         "code": 200,
-        "data": data["data"]
-    })
+        "data": data.get("data", [])
+    }), 200
 
 
-# Main UC2 endpoint — schedule a fitting appointment
 @app.route("/fitting/schedule", methods=['POST'])
 def schedule_fitting():
-    """
-    Expected JSON:
-    {
-        "customer_id": 1,
-        "dress_id": 101,
-        "slot_datetime": "2026-04-16 10:00:00"
-    }
-    """
-    data = request.get_json()
+    try:
+        data = request.get_json()
+    except Exception as e:
+        return jsonify({
+            "code": 400,
+            "message": f"Invalid JSON: {str(e)}"
+        }), 400
+
+    if not data:
+        return jsonify({
+            "code": 400,
+            "message": "Request body must be valid JSON."
+        }), 400
 
     for field in ['customer_id', 'dress_id', 'slot_datetime']:
         if field not in data:
@@ -69,48 +56,60 @@ def schedule_fitting():
                 "message": f"Missing required field: {field}"
             }), 400
 
-    customer_id   = data['customer_id']
-    dress_id      = data['dress_id']
+    customer_id = data['customer_id']
+    dress_id = data['dress_id']
     slot_datetime = data['slot_datetime']
 
-    # ── Step 2: Get dress information from Inventory Service ──────────────────
     try:
-        inventory_response = requests.get(f"{INVENTORY_URL}/inventory/{dress_id}")
+        inventory_response = requests.get(f"{INVENTORY_URL}/inventory/{dress_id}", timeout=5)
         inventory_data = inventory_response.json()
     except Exception as e:
-        return jsonify({"code": 500, "message": f"Inventory service error: {str(e)}"}), 500
+        return jsonify({
+            "code": 500,
+            "message": f"Inventory error: {str(e)}"
+        }), 500
 
     if inventory_response.status_code != 200:
         return jsonify({
-            "code": 404,
-            "message": f"Dress {dress_id} not found in inventory."
-        }), 404
+            "code": inventory_response.status_code,
+            "message": inventory_data.get("message", f"Dress {dress_id} not found in inventory.")
+        }), inventory_response.status_code
 
-    dress = inventory_data["data"]
+    dress = inventory_data.get("data")
+    if not dress:
+        return jsonify({
+            "code": 500,
+            "message": "Inventory response missing dress data."
+        }), 500
 
-    # check dress is available before booking
-    if not dress["is_available"]:
+    if not dress.get("is_available", False):
         return jsonify({
             "code": 400,
             "message": f"Dress {dress_id} is not available for fitting."
         }), 400
 
-    # ── Step 3: Get customer information from Customer Service ────────────────
     try:
-        customer_response = requests.get(f"{CUSTOMER_URL}/customer/{customer_id}")
+        customer_response = requests.get(f"{CUSTOMER_URL}/customer/{customer_id}", timeout=5)
         customer_data = customer_response.json()
     except Exception as e:
-        return jsonify({"code": 500, "message": f"Customer service error: {str(e)}"}), 500
+        return jsonify({
+            "code": 500,
+            "message": f"Customer error: {str(e)}"
+        }), 500
 
     if customer_response.status_code != 200:
         return jsonify({
-            "code": 404,
-            "message": f"Customer {customer_id} not found."
-        }), 404
+            "code": customer_response.status_code,
+            "message": customer_data.get("message", f"Customer {customer_id} not found.")
+        }), customer_response.status_code
 
-    customer = customer_data["data"]
+    customer = customer_data.get("data")
+    if not customer:
+        return jsonify({
+            "code": 500,
+            "message": "Customer response missing customer data."
+        }), 500
 
-    # ── Step 4: Book the timeslot via Booking Service ─────────────────────────
     try:
         booking_response = requests.post(
             f"{BOOKING_URL}/bookings",
@@ -118,24 +117,31 @@ def schedule_fitting():
                 "customer_id": customer_id,
                 "dress_id": dress_id,
                 "slot_datetime": slot_datetime
-                # calendar_event_id: add when Google Calendar is integrated
-            }
+            },
+            timeout=5
         )
         booking_data = booking_response.json()
     except Exception as e:
-        return jsonify({"code": 500, "message": f"Booking service error: {str(e)}"}), 500
+        return jsonify({
+            "code": 500,
+            "message": f"Booking error: {str(e)}"
+        }), 500
 
     if booking_response.status_code != 201:
         return jsonify({
+            "code": booking_response.status_code,
+            "message": booking_data.get("message", "Failed to create booking.")
+        }), booking_response.status_code
+
+    booking = booking_data.get("data")
+    if not booking:
+        return jsonify({
             "code": 500,
-            "message": "Failed to create booking."
+            "message": "Booking response missing booking data."
         }), 500
 
-    booking = booking_data["data"]
-
-    # ── Step 5: Send confirmation via Notification Service (AMQP/HTTP) ────────
     try:
-        notification_response = requests.post(
+        requests.post(
             f"{NOTIFICATION_URL}/notifications",
             json={
                 "customer_id": customer_id,
@@ -145,44 +151,39 @@ def schedule_fitting():
                     f"(ID: {dress_id}, Size: {dress['size']}) is confirmed on "
                     f"{slot_datetime}. Booking ID: {booking['booking_id']}."
                 )
-            }
+            },
+            timeout=5
         )
-    except Exception as e:
-        # notification failure should not block the booking confirmation
-        print(f"[WARNING] Notification service error: {str(e)}")
+    except Exception:
+        pass
 
-    # ── Step 6: Return booking confirmation to UI ─────────────────────────────
     return jsonify({
         "code": 201,
         "data": {
-            "booking_id":    booking["booking_id"],
+            "booking_id": booking["booking_id"],
             "slot_datetime": booking["slot_datetime"],
-            "dress_id":      dress_id,
-            "dress_size":    dress["size"],
-            "customer_id":   customer_id,
+            "dress_id": dress_id,
+            "dress_size": dress["size"],
+            "customer_id": customer_id,
             "customer_name": customer["name"],
             "customer_email": customer["email"]
         }
     }), 201
 
 
-# ─── CANCEL A FITTING APPOINTMENT ────────────────────────────────────────────
-
 @app.route("/fitting/cancel/<int:booking_id>", methods=['PUT'])
 def cancel_fitting(booking_id):
-    """
-    Cancels a confirmed fitting appointment.
-    Notifies the customer via notification service.
-    """
-
-    # cancel booking
     try:
         booking_response = requests.put(
-            f"{BOOKING_URL}/bookings/{booking_id}/cancel"
+            f"{BOOKING_URL}/bookings/{booking_id}/cancel",
+            timeout=5
         )
         booking_data = booking_response.json()
     except Exception as e:
-        return jsonify({"code": 500, "message": f"Booking service error: {str(e)}"}), 500
+        return jsonify({
+            "code": 500,
+            "message": f"Booking service error: {str(e)}"
+        }), 500
 
     if booking_response.status_code != 200:
         return jsonify({
@@ -190,30 +191,36 @@ def cancel_fitting(booking_id):
             "message": booking_data.get("message", "Failed to cancel booking.")
         }), booking_response.status_code
 
-    booking = booking_data["data"]
+    booking = booking_data.get("data")
+    if not booking:
+        return jsonify({
+            "code": 500,
+            "message": "Booking response missing booking data."
+        }), 500
 
-    # get customer info to send notification
     try:
         customer_response = requests.get(
-            f"{CUSTOMER_URL}/customer/{booking['customer_id']}"
+            f"{CUSTOMER_URL}/customer/{booking['customer_id']}",
+            timeout=5
         )
         customer_data = customer_response.json()
-        customer = customer_data["data"]
+        customer = customer_data.get("data")
 
-        # notify customer of cancellation
-        requests.post(
-            f"{NOTIFICATION_URL}/notifications",
-            json={
-                "customer_id": booking["customer_id"],
-                "email": customer["email"],
-                "message": (
-                    f"Hi {customer['name']}, your fitting appointment "
-                    f"(Booking ID: {booking_id}) has been successfully cancelled."
-                )
-            }
-        )
-    except Exception as e:
-        print(f"[WARNING] Notification service error: {str(e)}")
+        if customer:
+            requests.post(
+                f"{NOTIFICATION_URL}/notifications",
+                json={
+                    "customer_id": booking["customer_id"],
+                    "email": customer["email"],
+                    "message": (
+                        f"Hi {customer['name']}, your fitting appointment "
+                        f"(Booking ID: {booking_id}) has been successfully cancelled."
+                    )
+                },
+                timeout=5
+            )
+    except Exception:
+        pass
 
     return jsonify({
         "code": 200,
@@ -221,8 +228,8 @@ def cancel_fitting(booking_id):
             "booking_id": booking_id,
             "status": "CANCELLED"
         }
-    })
+    }), 200
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5010, debug=True)
+    app.run(host='0.0.0.0', port=5010, debug=False)

@@ -10,6 +10,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
 )
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS']=False
 app.config['SQLALCHEMY_ENGINE_OPTIONS']={'pool_recycle':299}
+app.config['TRUSTED_HOSTS'] = None
 
 db = SQLAlchemy(app)
 CORS(app)
@@ -171,4 +172,4 @@ def update_customer(customer_id):
     return jsonify({"code": 200, "data": customer.json()})
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=False)

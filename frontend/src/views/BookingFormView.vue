@@ -21,25 +21,36 @@
 
         <div class="form-group">
           <label>Name *</label>
-          <input v-model="customerDetails.name" placeholder="Jane Smith" required />
+          <input v-model="customerDetails.name" placeholder="Fill in your name" required />
         </div>
 
         <div class="form-group">
           <label>Email *</label>
-          <input v-model="customerDetails.email" type="email" placeholder="jane@example.com" required />
+          <input v-model="customerDetails.email" type="email" placeholder="Fill in your email" required />
         </div>
 
         <div class="form-group">
           <label>Phone *</label>
-          <input v-model="customerDetails.phone" placeholder="+65 9123 4567" required />
+          <input v-model="customerDetails.phone" placeholder="Fill in your number" required />
         </div>
 
-        <div class="form-group">
-          <label>Selected fitting date</label>
-          <input :value="formatDate(fittingForm.fittingDate)" readonly />
-        </div>
+        <!-- Payment Section -->
+        <!-- <div class="section-divider">
+          <h4>Payment Method</h4>
+        </div> -->
 
-        <p v-if="apiError" class="error-msg">{{ apiError }}</p>
+        <!-- <div class="form-group">
+          <label>Name on card</label>
+          <input v-model="cardName" placeholder="Jane Smith" required />
+        </div> -->
+
+        <!-- <div class="form-group">
+          <label>Card details</label>
+          <div id="card-element" class="stripe-input"></div>
+          <p v-if="cardError" class="error-msg">{{ cardError }}</p>
+        </div> -->
+
+        <!-- <p v-if="apiError" class="error-msg">{{ apiError }}</p> -->
 
         <button
           type="button"

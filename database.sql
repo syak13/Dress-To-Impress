@@ -30,7 +30,7 @@ CREATE TABLE customers (
     customer_id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     email VARCHAR(190) NOT NULL UNIQUE,
-    phone VARCHAR(255),
+    phone VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255),
     role ENUM('customer', 'employee') DEFAULT 'customer'
 );
@@ -73,7 +73,7 @@ CREATE TABLE rentals (
     dress_id INT NOT NULL,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
-    status ENUM('ACTIVE', 'COMPLETED', 'CANCELLED') DEFAULT 'ACTIVE',
+    status ENUM('ACTIVE', 'COMPLETED', 'CANCELLED', 'ERROR', 'PENDING') DEFAULT 'PENDING',
     FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
     FOREIGN KEY (dress_id) REFERENCES inventory(dress_id)
 );
@@ -116,11 +116,11 @@ CREATE TABLE invoices (
 -- =========================
 
 INSERT INTO customers (name, email, phone, password_hash, role) VALUES
-('Alice Smith', 'alice@user.com', '', 'user123', 'customer'),
-('Bob Jones', 'bob@user.com', '', 'user123', 'customer'),
-('Chloe Davis', 'chloe@user.com', '', 'user123', 'customer'),
-('Sarah Employee', 'sarah@staff.com', '', 'staff123', 'employee'),
-('James Employee', 'james@staff.com', '', 'staff123', 'employee');
+('Alice Smith', 'alice@user.com', '91234567', 'user123', 'customer'),
+('Bob Jones', 'bob@user.com', '82345678', 'user123', 'customer'),
+('Chloe Davis', 'chloe@user.com', '98765432', 'user123', 'customer'),
+('Sarah Employee', 'sarah@staff.com', '84567890', 'staff123', 'employee'),
+('James Employee', 'james@staff.com', '93456789', 'staff123', 'employee');
 
 INSERT INTO inventory (dress_id, name, size, price, color, img, unavailable_dates, is_available) VALUES
 (101, 'Blush Satin Gown', 'S',   80.00, 'Pink', '/images/dress_pink.jpeg', '["2026-04-16","2026-04-17","2026-04-18","2026-04-19"]', TRUE),

@@ -19,7 +19,7 @@
       <form v-if="activeTab === 'login'" @submit.prevent="handleLogin" class="form">
         <div class="form-group">
           <label>Email</label>
-          <input v-model="loginForm.email" type="email" placeholder="you@email.com" required />
+          <input v-model="loginForm.email" type="email" placeholder="Fill in your email" required />
         </div>
         <div class="form-group">
           <label>Password</label>
@@ -39,11 +39,11 @@
       <form v-if="activeTab === 'register'" @submit.prevent="handleRegister" class="form">
         <div class="form-group">
           <label>Full Name</label>
-          <input v-model="registerForm.name" type="text" placeholder="Your full name" required />
+          <input v-model="registerForm.name" type="text" placeholder="Fill in your name" required />
         </div>
         <div class="form-group">
           <label>Email</label>
-          <input v-model="registerForm.email" type="email" placeholder="you@email.com" required />
+          <input v-model="registerForm.email" type="email" placeholder="Fill in your email" required />
         </div>
         <div class="form-group">
           <label>Password</label>
