@@ -1,7 +1,6 @@
 <template>
   <section class="page">
     <div class="payment-layout" v-if="selectedDress">
-      <!-- Dress Summary -->
       <div class="summary-panel">
         <h3>Fitting Details</h3>
         <img :src="selectedDress.img" alt="" class="dress-img" />
@@ -9,23 +8,13 @@
         <p class="meta">{{ selectedDress.size }} • {{ selectedDress.color }}</p>
         <div class="summary-row">
           <span>Fitting Date</span>
-          <span>{{ formatDate(rentForm.startDate) }}</span>
+          <span>{{ formatDate(fittingForm.fittingDate) }}</span>
         </div>
-        <!-- <div class="summary-row">
-          <span>Price per day</span>
-          <span>${{ selectedDress.price }}</span>
-        </div>
-        <div class="summary-row total">
-          <span>Total ({{ rentalDays }} days)</span>
-          <span>${{ totalPrice }}</span>
-        </div> -->
       </div>
 
-      <!-- Customer + Payment Form -->
       <div class="payment-panel">
         <h3>Complete Your Booking</h3>
 
-        <!-- Customer Details Section -->
         <div class="section-divider">
           <h4>Customer Information</h4>
         </div>
@@ -45,24 +34,42 @@
           <input v-model="customerDetails.phone" placeholder="Fill in your number" required />
         </div>
 
-        <button 
-          type="submit" 
-          class="pay-btn" 
+        <!-- Payment Section -->
+        <!-- <div class="section-divider">
+          <h4>Payment Method</h4>
+        </div> -->
+
+        <!-- <div class="form-group">
+          <label>Name on card</label>
+          <input v-model="cardName" placeholder="Jane Smith" required />
+        </div> -->
+
+        <!-- <div class="form-group">
+          <label>Card details</label>
+          <div id="card-element" class="stripe-input"></div>
+          <p v-if="cardError" class="error-msg">{{ cardError }}</p>
+        </div> -->
+
+        <!-- <p v-if="apiError" class="error-msg">{{ apiError }}</p> -->
+
+        <button
+          type="button"
+          class="pay-btn"
           :disabled="loading || !isFormValid"
-          @click.prevent="handlePayment"
+          @click="handleBooking"
         >
-          {{ loading ? 'Processing...' : `Click to Confirm Fitting Appointment` }}
+          {{ loading ? 'Processing...' : 'Confirm Fitting Appointment' }}
         </button>
 
-        <!-- Success State -->
-        <!-- <div v-if="paymentSuccess" class="success-box">
-          <h4>🎉 Rental Confirmed!</h4>
-          <p>Your dress is reserved. You'll receive a confirmation email shortly.</p>
-          <p><strong>Rental ID:</strong> {{ confirmedRentalId }}</p>
+        <div v-if="bookingSuccess" class="success-box">
+          <h4>Booking Confirmed!</h4>
+          <p>Your fitting appointment has been scheduled.</p>
+          <p><strong>Booking ID:</strong> {{ confirmedBookingId }}</p>
+          <p><strong>Date:</strong> {{ formatDate(confirmedSlotDate) }}</p>
           <RouterLink to="/" class="back-home-btn">
             Back to Dresses
           </RouterLink>
-        </div> -->
+        </div>
       </div>
     </div>
 
@@ -73,32 +80,24 @@
 </template>
 
 <script setup>
-import { reactive, ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { reactive, ref, computed, onMounted } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
-import { loadStripe } from '@stripe/stripe-js'
 
 const route = useRoute()
 
 const selectedDress = ref(null)
 const customerDetails = reactive({ name: '', phone: '', email: '' })
-const rentForm = reactive({ startDate: '', endDate: '' })
-const cardName = ref('')
+const fittingForm = reactive({ fittingDate: '' })
 
-const cardError = ref('')
 const apiError = ref('')
 const loading = ref(false)
-const paymentSuccess = ref(false)
-const confirmedRentalId = ref(null)
-
-let stripe = null
-let cardElement = null
+const bookingSuccess = ref(false)
+const confirmedBookingId = ref(null)
+const confirmedSlotDate = ref('')
 
 onMounted(async () => {
-  // Pre-fill dates from availability selection
-  rentForm.startDate = route.query.startDate || ''
-  rentForm.endDate = route.query.endDate || ''
+  fittingForm.fittingDate = route.query.fittingDate || ''
 
-  // Auto-fill customer info from localStorage (login session)
   const stored = localStorage.getItem('dti_user')
   if (stored) {
     const user = JSON.parse(stored)
@@ -107,7 +106,6 @@ onMounted(async () => {
     customerDetails.phone = user.phone || ''
   }
 
-  // Load dress details
   const dressId = route.params.dressId
   if (dressId) {
     const res = await fetch(`http://localhost:5001/inventory/${dressId}`)
@@ -116,52 +114,16 @@ onMounted(async () => {
       selectedDress.value = data.data
     }
   }
-
-  // Initialize Stripe
-  stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
-  const elements = stripe.elements()
-  cardElement = elements.create('card', {
-    style: {
-      base: {
-        fontSize: '16px',
-        color: '#1e3a5f',
-        fontFamily: 'inherit',
-        '::placeholder': { color: '#94a3b8' }
-      }
-    }
-  })
-  cardElement.mount('#card-element')
-  cardElement.on('change', (e) => {
-    cardError.value = e.error ? e.error.message : ''
-  })
-})
-
-onBeforeUnmount(() => {
-  if (cardElement) cardElement.destroy()
-})
-
-const rentalDays = computed(() => {
-  if (!rentForm.startDate || !rentForm.endDate) return 0
-  const start = new Date(rentForm.startDate)
-  const end = new Date(rentForm.endDate)
-  return Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1
-})
-
-const totalPrice = computed(() => {
-  if (!selectedDress.value || !rentalDays.value) return 0
-  return (parseFloat(selectedDress.value.price) * rentalDays.value).toFixed(2)
 })
 
 const isFormValid = computed(() => {
-  return customerDetails.name && 
-         customerDetails.email && 
-         customerDetails.phone && 
-         rentForm.startDate && 
-         rentForm.endDate && 
-         cardName.value
+  return customerDetails.name &&
+    customerDetails.email &&
+    customerDetails.phone &&
+    fittingForm.fittingDate
 })
 
-const formatDate = (dateStr) => {
+function formatDate(dateStr) {
   if (!dateStr) return ''
   return new Date(dateStr).toLocaleDateString('en-SG', {
     weekday: 'short',
@@ -171,86 +133,62 @@ const formatDate = (dateStr) => {
   })
 }
 
-async function handlePayment() {
+async function handleBooking() {
   loading.value = true
   apiError.value = ''
-  cardError.value = ''
 
   const stored = localStorage.getItem('dti_user')
   const user = stored ? JSON.parse(stored) : null
 
   if (!user) {
-    apiError.value = 'Please log in to complete your rental.'
+    apiError.value = 'Please log in to complete your fitting booking.'
     loading.value = false
     return
   }
 
   try {
-    const orderRes = await fetch('http://localhost:5011/rental-order', {
+    await fetch(`http://localhost:5000/customer/${user.customer_id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: customerDetails.name,
+        email: customerDetails.email,
+        phone: customerDetails.phone
+      })
+    })
+
+    const slotDatetime = `${fittingForm.fittingDate} 10:00:00`
+
+    const response = await fetch('http://localhost:5010/fitting/schedule', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         customer_id: user.customer_id,
         dress_id: selectedDress.value.dress_id,
-        start_date: rentForm.startDate,
-        end_date: rentForm.endDate,
-        customer_name: customerDetails.name,
-        customer_email: customerDetails.email,
-        customer_phone: customerDetails.phone,
-        total_amount: parseFloat(totalPrice.value)
+        slot_datetime: slotDatetime
       })
     })
 
-    const orderJson = await orderRes.json()
+    const data = await response.json()
 
-    if (orderJson.code !== 201) {
-      apiError.value = orderJson.message || 'Failed to create rental order.'
+    if (data.code !== 201) {
+      apiError.value = data.message || 'Failed to create fitting appointment.'
       loading.value = false
       return
     }
 
-    const { client_secret, invoice_id, rental_id } = orderJson.data
-
-    const { error, paymentIntent } = await stripe.confirmCardPayment(client_secret, {
-      payment_method: {
-        card: cardElement,
-        billing_details: {
-          name: cardName.value,
-          email: customerDetails.email,
-          phone: customerDetails.phone
-        }
-      }
-    })
-
-    if (error) {
-      cardError.value = error.message
-      loading.value = false
-      return
-    }
-
-    if (paymentIntent.status === 'succeeded') {
-      await fetch(`http://localhost:5005/invoice/${invoice_id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: 'PAID',
-          stripe_id: paymentIntent.id
-        })
-      })
-
-      confirmedRentalId.value = rental_id
-      paymentSuccess.value = true
-    }
+    confirmedBookingId.value = data.data.booking_id
+    confirmedSlotDate.value = data.data.slot_datetime
+    bookingSuccess.value = true
   } catch (e) {
-    apiError.value = 'Payment failed. Please try again.'
+    apiError.value = 'Could not complete fitting booking.'
     console.error(e)
   } finally {
     loading.value = false
   }
 }
-
-
 </script>
+
 
 <style scoped>
 .page {

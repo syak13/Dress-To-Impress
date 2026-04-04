@@ -1,196 +1,162 @@
 <template>
-    <section class="page">
-      <div class="availability-layout" v-if="selectedDress">
-        <div class="dress-panel">
-          <img :src="selectedDress.img" alt="" class="dress-img" />
-          <h2>{{ selectedDress.name }}</h2>
-          <p class="meta">{{ selectedDress.size }} • {{ selectedDress.color }}</p>
-          <p class="price">${{ selectedDress.price }}/day</p>
+  <section class="page">
+    <div class="availability-layout" v-if="selectedDress">
+      <div class="dress-panel">
+        <img :src="selectedDress.img" alt="" class="dress-img" />
+        <h2>{{ selectedDress.name }}</h2>
+        <p class="meta">{{ selectedDress.size }} • {{ selectedDress.color }}</p>
+        <p class="price">${{ selectedDress.price }}/day</p>
+      </div>
+
+      <div class="calendar-panel">
+        <h3>Select fitting date</h3>
+
+        <div class="calendar-header">
+          <button type="button" class="nav-btn" @click="prevMonth">‹</button>
+          <h4>{{ currentMonthLabel }}</h4>
+          <button type="button" class="nav-btn" @click="nextMonth">›</button>
         </div>
-  
-        <div class="calendar-panel">
-          <h3>Select fitting date</h3>
-  
-          <div class="calendar-header">
-            <button type="button" class="nav-btn" @click="prevMonth">‹</button>
-            <h4>{{ currentMonthLabel }}</h4>
-            <button type="button" class="nav-btn" @click="nextMonth">›</button>
-          </div>
-  
-          <div class="weekday-row">
-            <span v-for="day in weekdays" :key="day">{{ day }}</span>
-          </div>
-  
-          <div class="calendar-grid">
-            <button
-              v-for="day in calendarDays"
-              :key="day.date"
-              type="button"
-              class="calendar-day"
-              :class="{
-                'other-month': !day.inCurrentMonth,
-                'unavailable': isUnavailable(day.date),
-                'selected': isSelected(day.date),
-                'in-range': isInRange(day.date)
-              }"
-              :disabled="isUnavailable(day.date)"
-              @click="selectDate(day.date)"
-            >
-              {{ day.dayNumber }}
-            </button>
-          </div>
-  
-          <!-- <div v-if="selectedStart && selectedEnd" class="selection-box">
-            <p><strong>Start:</strong> {{ selectedStart }}</p>
-            <p><strong>End:</strong> {{ selectedEnd }}</p>
-          </div> -->
-  
+
+        <div class="weekday-row">
+          <span v-for="day in weekdays" :key="day">{{ day }}</span>
+        </div>
+
+        <div class="calendar-grid">
           <button
-            v-if="selectedStart"
+            v-for="day in calendarDays"
+            :key="day.date"
             type="button"
-            class="next-btn"
-            @click="goToFitting"
+            class="calendar-day"
+            :class="{
+              'other-month': !day.inCurrentMonth,
+              'unavailable': isUnavailable(day.date),
+              'selected': isSelected(day.date)
+            }"
+            :disabled="isUnavailable(day.date)"
+            @click="selectDate(day.date)"
           >
-            Next
+            {{ day.dayNumber }}
           </button>
         </div>
+
+        <button
+          v-if="selectedDate"
+          type="button"
+          class="next-btn"
+          @click="goToFitting"
+        >
+          Next
+        </button>
       </div>
-    </section>
-  </template>
-  
-  <script setup>
-  import { ref, computed, onMounted } from 'vue'
-  import { useRoute, useRouter } from 'vue-router'
-  
-  const route = useRoute()
-  const router = useRouter()
-  
-  const selectedDress = ref(null)
-  const selectedStart = ref('')
-  const selectedEnd = ref('')
-  const currentMonth = ref(new Date())
-  
-  const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-  
-  onMounted(async () => {
-    const dressId = route.params.dressId
-    if (!dressId) return
-  
-    const res = await fetch(`http://localhost:5001/inventory/${dressId}`)
-    const data = await res.json()
-  
-    if (data.code === 200) {
-      selectedDress.value = data.data
-    }
+    </div>
+  </section>
+</template>
+
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+
+const route = useRoute()
+const router = useRouter()
+
+const selectedDress = ref(null)
+const selectedDate = ref('')
+const currentMonth = ref(new Date())
+
+const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+onMounted(async () => {
+  const dressId = route.params.dressId
+  if (!dressId) return
+
+  const res = await fetch(`http://localhost:5001/inventory/${dressId}`)
+  const data = await res.json()
+
+  if (data.code === 200) {
+    selectedDress.value = data.data
+  }
+})
+
+const currentMonthLabel = computed(() => {
+  return currentMonth.value.toLocaleString('en-US', {
+    month: 'long',
+    year: 'numeric'
   })
-  
-  const currentMonthLabel = computed(() => {
-    return currentMonth.value.toLocaleString('en-US', {
-      month: 'long',
-      year: 'numeric'
-    })
-  })
-  
-  const calendarDays = computed(() => {
-    const year = currentMonth.value.getFullYear()
-    const month = currentMonth.value.getMonth()
-  
-    const firstDayOfMonth = new Date(year, month, 1)
-    const startDay = firstDayOfMonth.getDay()
-    const gridStart = new Date(year, month, 1 - startDay)
-  
-    const days = []
-  
-    for (let i = 0; i < 42; i++) {
-      const date = new Date(gridStart)
-      date.setDate(gridStart.getDate() + i)
-  
-      days.push({
-        date: formatDate(date),
-        dayNumber: date.getDate(),
-        inCurrentMonth: date.getMonth() === month
-      })
-    }
-  
-    return days
-  })
-  
-  function formatDate(date) {
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
-  }
-  
-  function prevMonth() {
-    const d = currentMonth.value
-    currentMonth.value = new Date(d.getFullYear(), d.getMonth() - 1, 1)
-  }
-  
-  function nextMonth() {
-    const d = currentMonth.value
-    currentMonth.value = new Date(d.getFullYear(), d.getMonth() + 1, 1)
-  }
-  
-  function isUnavailable(dateStr) {
-    return selectedDress.value?.unavailable_dates?.includes(dateStr) ?? false
-  }
-  
-  function selectDate(dateStr) {
-    if (isUnavailable(dateStr)) return
-  
-    if (!selectedStart.value || (selectedStart.value && selectedEnd.value)) {
-      selectedStart.value = dateStr
-      selectedEnd.value = ''
-      return
-    }
-  
-    if (dateStr < selectedStart.value) {
-      selectedEnd.value = selectedStart.value
-      selectedStart.value = dateStr
-    } else {
-      selectedEnd.value = dateStr
-    }
-  
-    if (hasUnavailableBetween(selectedStart.value, selectedEnd.value)) {
-      alert('Selected range includes unavailable dates.')
-      selectedStart.value = ''
-      selectedEnd.value = ''
-    }
-  }
-  
-  function hasUnavailableBetween(start, end) {
-    const current = new Date(start)
-    const last = new Date(end)
-  
-    while (current <= last) {
-      const dateStr = formatDate(current)
-      if (isUnavailable(dateStr)) return true
-      current.setDate(current.getDate() + 1)
-    }
-  
-    return false
-  }
-  
-  function isSelected(dateStr) {
-    return dateStr === selectedStart.value || dateStr === selectedEnd.value
-  }
-  
-  function isInRange(dateStr) {
-    return selectedStart.value && selectedEnd.value &&
-      dateStr > selectedStart.value && dateStr < selectedEnd.value
-  }
-  
-  function goToFitting() {
-    router.push({
-      path: `/bookingform/${selectedDress.value.dress_id}`,
-      query: {
-        startDate: selectedStart.value,
-        endDate: selectedEnd.value
-      }
+})
+
+const calendarDays = computed(() => {
+  const year = currentMonth.value.getFullYear()
+  const month = currentMonth.value.getMonth()
+
+  const firstDayOfMonth = new Date(year, month, 1)
+  const startDay = firstDayOfMonth.getDay()
+  const gridStart = new Date(year, month, 1 - startDay)
+
+  const days = []
+
+  for (let i = 0; i < 42; i++) {
+    const date = new Date(gridStart)
+    date.setDate(gridStart.getDate() + i)
+
+    days.push({
+      date: formatDate(date),
+      dayNumber: date.getDate(),
+      inCurrentMonth: date.getMonth() === month
     })
   }
-  </script>
+
+  return days
+})
+
+function formatDate(date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function formatDisplayDate(dateStr) {
+  return new Date(dateStr).toLocaleDateString('en-SG', {
+    weekday: 'short',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  })
+}
+
+function prevMonth() {
+  const d = currentMonth.value
+  currentMonth.value = new Date(d.getFullYear(), d.getMonth() - 1, 1)
+}
+
+function nextMonth() {
+  const d = currentMonth.value
+  currentMonth.value = new Date(d.getFullYear(), d.getMonth() + 1, 1)
+}
+
+function isUnavailable(dateStr) {
+  return selectedDress.value?.unavailable_dates?.includes(dateStr) ?? false
+}
+
+function selectDate(dateStr) {
+  if (isUnavailable(dateStr)) return
+  selectedDate.value = dateStr
+}
+
+function isSelected(dateStr) {
+  return dateStr === selectedDate.value
+}
+
+function goToFitting() {
+  router.push({
+    path: `/bookingform/${selectedDress.value.dress_id}`,
+    query: {
+      fittingDate: selectedDate.value
+    }
+  })
+}
+</script>
+
   
   <style scoped>
   .page {
