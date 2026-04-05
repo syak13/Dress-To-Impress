@@ -118,7 +118,7 @@ CREATE TABLE invoices (
 INSERT INTO customers (name, email, phone, password_hash, role) VALUES
 ('Alice Smith', 'alice@user.com', '91234567', 'user123', 'customer'),
 ('Bob Jones', 'bob@user.com', '82345678', 'user123', 'customer'),
-('Chloe Davis', 'chloe@user.com', '98765432', 'user123', 'customer'),
+('Chloe Davis', 'chloe@user.com', '+18777804236', 'user123', 'customer'),
 ('Sarah Employee', 'sarah@staff.com', '84567890', 'staff123', 'employee'),
 ('James Employee', 'james@staff.com', '93456789', 'staff123', 'employee');
 
