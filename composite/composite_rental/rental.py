@@ -6,8 +6,6 @@ import logging
 import threading
 import time
 from datetime import datetime
-import pika
-import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # ─── LOGGING SETUP ────────────────────────────────────────────────────────────
@@ -196,44 +194,7 @@ def place_rental_order():
 
     customer = customer_data["data"]
 
-    # ── Step 7: Send confirmation SMS ────────────────────────────────────────
-
-    try:
-    # 1. Prepare the exact same data
-        notification_data = {
-            "customer_id": customer_id,
-            "email": customer.get("email", ""),
-            "message": (
-                    f"Hi {customer['name']}, your rental order (ID: {rental_id}) "
-                    f"for dress {dress_id} (Size: {dress_size}) from "
-                    f"{start_date} to {end_date} is confirmed! "
-                    f"Total: ${dress_price}. Invoice: {invoice['invoice_id']}."),
-            "phone": customer.get("phone", "+18777804236")
-        }
-
-        # 2. Connect to RabbitMQ (the "Post Office")
-        connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
-        channel = connection.channel()
-
-        # 3. Ensure the queue exists
-        channel.queue_declare(queue='notifications_queue', durable=True)
-
-        # 4. Drop the message in the queue
-        channel.basic_publish(
-            exchange='',
-            routing_key='notifications_queue',
-            body=json.dumps(notification_data),
-            properties=pika.BasicProperties(
-                delivery_mode=2,  # Make message persistent so it survives restarts
-            )
-        )
-        connection.close()
-        print("[DEBUG] Message dropped into RabbitMQ successfully!", flush=True)
-
-    except Exception as e:
-        print(f"[ERROR] Failed to send to RabbitMQ: {str(e)}", flush=True)
-
-    # ── Step 8: Return rental order confirmation ─────────────────────────────
+    # ── Step 7: Return order data — notification sent after payment confirmed ──
     return jsonify({
         "code": 201,
         "data": {
@@ -352,18 +313,40 @@ def cancel_rental_order():
     except Exception as e:
         logger.error(f"[CANCEL] Rental cancellation error: {e}")
 
-    # Notify customer of failure
+    # ── Step 2: Notify customer of failure (Asynchronous) ────────────────────
     try:
-        requests.post(f"{NOTIFICATION_URL}/notifications", json={
+        # 1. Prepare the failure notification data
+        notification_data = {
             "customer_id": customer_id,
-            "phone": customer_phone,
+            "email": "", # You can fetch this from the 'data' object if available
             "message": (
                 f"Hi {customer_name}, unfortunately your rental order (ID: {rental_id}) "
                 f"could not be processed. Reason: {reason}. Please try again."
+            ),
+            "phone": customer_phone if customer_phone else "+18777804236"
+        }
+
+        # 2. Connect to RabbitMQ
+        connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
+        channel = connection.channel()
+
+        # 3. Ensure the queue exists
+        channel.queue_declare(queue='notifications_queue', durable=True)
+
+        # 4. Drop the message in the queue
+        channel.basic_publish(
+            exchange='',
+            routing_key='notifications_queue',
+            body=json.dumps(notification_data),
+            properties=pika.BasicProperties(
+                delivery_mode=2,  # Make message persistent
             )
-        }, timeout=5)
+        )
+        connection.close()
+        logger.info(f"[CANCEL] Failure notification dropped into RabbitMQ for rental_id={rental_id}")
+
     except Exception as e:
-        logger.error(f"[CANCEL] Notification error for rental {rental_id}: {e}")
+        logger.error(f"[CANCEL] Failed to send failure notification to RabbitMQ: {e}")
 
     return jsonify({"code": 200, "data": {"rental_id": rental_id, "status": "CANCELLED"}})
 
