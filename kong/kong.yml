@@ -1,0 +1,136 @@
+_format_version: "3.0"
+_transform: true
+
+# ─── KONG DECLARATIVE CONFIG (DB-less mode) ───────────────────────────────────
+# All frontend traffic enters on port 8000 and is routed here.
+# Routes with longer paths take priority (e.g. /rental-order > /rental).
+
+# ─── GLOBAL PLUGINS ───────────────────────────────────────────────────────────
+plugins:
+  - name: cors
+    config:
+      origins:
+        - "http://localhost:5173"
+      methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+      headers:
+        - Accept
+        - Content-Type
+        - Authorization
+      exposed_headers:
+        - X-Kong-Upstream-Latency
+      credentials: true
+      max_age: 3600
+
+services:
+
+  # ── Atomic: Customer Service (port 5000) ──────────────────────────────────
+  - name: customer-service
+    url: http://customer_service:5000
+    routes:
+      - name: customer-routes
+        paths:
+          - /customer
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - PUT
+          - OPTIONS
+
+  # ── Atomic: Inventory Service (port 5001) ─────────────────────────────────
+  - name: inventory-service
+    url: http://inventory_service:5001
+    routes:
+      - name: inventory-routes
+        paths:
+          - /inventory
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - PUT
+          - OPTIONS
+
+  # ── Atomic: Rental Service (port 5004) ────────────────────────────────────
+  # NOTE: /rental-order (composite) is longer so KONG prefers it over /rental
+  - name: rental-service
+    url: http://rental_service:5004
+    routes:
+      - name: rental-routes
+        paths:
+          - /rental
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - PUT
+          - OPTIONS
+      - name: rentals-stale-route
+        paths:
+          - /rentals
+        strip_path: false
+        methods:
+          - GET
+          - OPTIONS
+
+  # ── Atomic: Invoice Service (port 5005) ───────────────────────────────────
+  - name: invoice-service
+    url: http://invoice_service:5005
+    routes:
+      - name: invoice-routes
+        paths:
+          - /invoice
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - PUT
+          - OPTIONS
+
+  # ── Composite: Fitting Service (port 5010) ────────────────────────────────
+  - name: fitting-composite-service
+    url: http://fitting_service:5010
+    routes:
+      - name: fitting-routes
+        paths:
+          - /fitting
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - PUT
+          - OPTIONS
+
+  # ── Composite: Rental Order Service (port 5011) ───────────────────────────
+  # /rental-order is longer than /rental → takes priority automatically
+  - name: rental-order-composite-service
+    url: http://place_rental_order:5011
+    routes:
+      - name: rental-order-routes
+        paths:
+          - /rental-order
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - PUT
+          - OPTIONS
+
+  # ── Composite: Return Service (port 5012) ─────────────────────────────────
+  - name: return-composite-service
+    url: http://returning_service:5012
+    routes:
+      - name: return-routes
+        paths:
+          - /return
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - PUT
+          - OPTIONS

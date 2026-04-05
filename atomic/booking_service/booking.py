@@ -20,15 +20,13 @@ class Booking(db.Model):
     booking_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     customer_id = db.Column(db.Integer, nullable=False)
     dress_id = db.Column(db.Integer, nullable=False)
-    calendar_event_id = db.Column(db.String(255))
     slot_datetime = db.Column(db.DateTime, nullable=False)
     status = db.Column(db.Enum('CONFIRMED', 'CANCELLED'), default='CONFIRMED')
 
-    def __init__(self, customer_id, dress_id, slot_datetime, calendar_event_id=None, status='CONFIRMED'):
+    def __init__(self, customer_id, dress_id, slot_datetime, status='CONFIRMED'):
         self.customer_id = customer_id
         self.dress_id = dress_id
         self.slot_datetime = slot_datetime
-        self.calendar_event_id = calendar_event_id
         self.status = status
 
     def json(self):
@@ -36,7 +34,6 @@ class Booking(db.Model):
             "booking_id": self.booking_id,
             "customer_id": self.customer_id,
             "dress_id": self.dress_id,
-            "calendar_event_id": self.calendar_event_id,
             "slot_datetime": self.slot_datetime.strftime("%Y-%m-%d %H:%M:%S"),
             "status": self.status
         }
@@ -122,7 +119,6 @@ def create_booking():
         customer_id=data['customer_id'],
         dress_id=data['dress_id'],
         slot_datetime=slot_dt,
-        calendar_event_id=data.get('calendar_event_id', None),
         status='CONFIRMED'
     )
 
