@@ -86,6 +86,7 @@ CREATE TABLE return_assessments (
     is_late BOOLEAN DEFAULT FALSE,
     is_damaged BOOLEAN DEFAULT FALSE,
     damage_description TEXT,
+    ai_damage_percent FLOAT DEFAULT 0.0,
     FOREIGN KEY (rental_id) REFERENCES rentals(rental_id),
     FOREIGN KEY (dress_id) REFERENCES inventory(dress_id)
 );
@@ -143,7 +144,7 @@ INSERT INTO notifications (customer_id, email, phone, message, status) VALUES
 INSERT INTO rentals (customer_id, dress_id, start_date, end_date, status) VALUES
 (1, 201, '2026-03-10', '2026-03-14', 'COMPLETED'),
 (2, 202, '2026-03-18', '2026-03-22', 'ACTIVE'),
-(3, 203, '2026-02-01', '2026-02-05', 'COMPLETED');
+(3, 203, '2026-02-01', '2026-02-05', 'ACTIVE');
 
 INSERT INTO return_assessments (rental_id, dress_id, return_date, is_late, is_damaged, damage_description) VALUES
 (1, 201, '2026-03-14 15:00:00', FALSE, FALSE, NULL),

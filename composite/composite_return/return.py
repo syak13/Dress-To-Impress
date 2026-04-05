@@ -1,8 +1,12 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import requests
 import os
+from datetime import date
 
 app = Flask(__name__)
+CORS(app)
+app.config['TRUSTED_HOSTS'] = None
 
 # ─── ATOMIC SERVICE URLS ──────────────────────────────────────────────────────
 RENTAL_URL            = os.environ.get('RENTAL_URL',            'http://localhost:5004')
@@ -11,182 +15,139 @@ RETURN_ASSESSMENT_URL = os.environ.get('RETURN_ASSESSMENT_URL', 'http://localhos
 INVOICE_URL           = os.environ.get('INVOICE_URL',           'http://localhost:5005')
 
 
-# ─── UC4: LOG RETURN OF DRESS ─────────────────────────────────────────────────
+# ─── UC4: LOG RETURN WITH AI DAMAGE ASSESSMENT ───────────────────────────────
 #
 # Flow:
-#   1. GET   rental information          → Rental Service
-#   2. GET   dress information           → Rental Service  (dressID, size, endDate)
-#   3. POST  upload return details       → Return Assessment Service
-#   4. GET   back is_late + is_damaged   → Return Assessment Service
-#   5. POST  calculate penalty fees      → Return Assessment Service
-#   6. GET   back total penalty          → Return Assessment Service
-#   7. POST  create penalty invoice      → Invoice Service  (if penalty > 0)
-#   8. PUT   update dress availability   → Inventory Service (is_available: True)
-#   9. PUT   update rental status        → Rental Service   (status: COMPLETED)
-#   10. Return updated order to UI
+#   1. GET   rental info                  → Rental Service
+#   2. Calculate late fee ($15/day)
+#   3. POST  image to AI assessment       → Return Assessment Service
+#   4. POST  penalty invoice (if any)     → Invoice Service
+#   5. PUT   dress available              → Inventory Service
+#   6. PUT   rental status → COMPLETED   → Rental Service
+#   7. Return invoice data to UI
 
-@app.route("/return", methods=['POST'])
-def log_return():
+@app.route("/return/image", methods=['POST'])
+def log_return_with_image():
     """
-    Expected JSON:
-    {
-        "rental_id": 1,
-        "dress_id": 201,
-        "is_damaged": true/false,
-        "damage_description": "Wine stain on hem"   (optional)
-    }
+    Expected multipart/form-data:
+    - rental_id:   int  (form field)
+    - return_date: str  YYYY-MM-DD (form field)
+    - image:       file
     """
-    data = request.get_json()
+    rental_id_str = request.form.get('rental_id')
+    return_date_str = request.form.get('return_date')
+    image_file = request.files.get('image')
 
-    for field in ['rental_id', 'dress_id', 'is_damaged']:
-        if field not in data:
-            return jsonify({
-                "code": 400,
-                "message": f"Missing required field: {field}"
-            }), 400
+    if not rental_id_str or not image_file:
+        return jsonify({"code": 400, "message": "Missing rental_id or image"}), 400
 
-    rental_id         = data['rental_id']
-    dress_id          = data['dress_id']
-    is_damaged        = data['is_damaged']
-    damage_description = data.get('damage_description', '')
+    rental_id = int(rental_id_str)
 
-    # ── Step 1+2: Get rental information + dress end_date ─────────────────────
+    # ── Step 1: Get rental info ───────────────────────────────────────────────
     try:
-        rental_response = requests.get(f"{RENTAL_URL}/rental/{rental_id}")
-        rental_data = rental_response.json()
+        rental_resp = requests.get(f"{RENTAL_URL}/rental/{rental_id}")
+        rental_data = rental_resp.json()
     except Exception as e:
         return jsonify({"code": 500, "message": f"Rental service error: {str(e)}"}), 500
 
-    if rental_response.status_code != 200:
-        return jsonify({
-            "code": 404,
-            "message": f"Rental {rental_id} not found."
-        }), 404
+    if rental_resp.status_code != 200:
+        return jsonify({"code": 404, "message": f"Rental {rental_id} not found."}), 404
 
     rental   = rental_data["data"]
-    end_date = rental["end_date"]
+    dress_id = rental["dress_id"]
+    end_date = rental["end_date"]   # "YYYY-MM-DD"
 
-    # ── Step 3+4: Upload return details, get is_late + is_damaged ─────────────
+    # ── Step 2: Calculate late fee ($15/day) ──────────────────────────────────
+    return_dt = date.fromisoformat(return_date_str) if return_date_str else date.today()
+    end_dt    = date.fromisoformat(end_date)
+    days_late = max(0, (return_dt - end_dt).days)
+    late_fee  = days_late * 15.0
+
+    # ── Step 2b: Load original dress image from mounted volume ────────────────
+    original_image_bytes  = None
+    original_content_type = 'image/jpeg'
     try:
-        assessment_response = requests.post(
-            f"{RETURN_ASSESSMENT_URL}/assessment",
-            json={
-                "rental_id":          rental_id,
-                "dress_id":           dress_id,
-                "end_date":           end_date,
-                "is_damaged":         is_damaged,
-                "damage_description": damage_description
-            }
+        inv_resp = requests.get(f"{INVENTORY_URL}/inventory/{dress_id}")
+        if inv_resp.status_code == 200:
+            img_path = inv_resp.json()["data"].get("img", "")  # e.g. /images/dress_blue.jpeg
+            if img_path:
+                # img_path is like "/images/dress_blue.jpeg" — mounted at /images inside container
+                local_path = img_path  # already maps to the mounted volume path
+                with open(local_path, 'rb') as f:
+                    original_image_bytes = f.read()
+    except Exception:
+        pass  # proceed without original; AI will fall back to single-image analysis
+
+    # ── Step 3: Forward image(s) to Return Assessment Service ─────────────────
+    image_bytes = image_file.read()
+    files = {'image': (image_file.filename, image_bytes, image_file.content_type)}
+    if original_image_bytes:
+        files['original_image'] = ('original.jpg', original_image_bytes, original_content_type)
+
+    try:
+        assessment_resp = requests.post(
+            f"{RETURN_ASSESSMENT_URL}/assessment/image",
+            data={
+                'rental_id': str(rental_id),
+                'dress_id':  str(dress_id),
+                'end_date':  end_date,
+            },
+            files=files
         )
-        assessment_data = assessment_response.json()
+        assessment_data = assessment_resp.json()
     except Exception as e:
         return jsonify({"code": 500, "message": f"Assessment service error: {str(e)}"}), 500
 
-    if assessment_response.status_code != 201:
-        return jsonify({
-            "code": 500,
-            "message": "Failed to create return assessment."
-        }), 500
+    if assessment_resp.status_code != 201:
+        return jsonify({"code": 500, "message": "Failed to create return assessment."}), 500
 
-    assessment    = assessment_data["data"]
-    assessment_id = assessment["assessment_id"]
-    is_late       = assessment["is_late"]
-    is_damaged    = assessment["is_damaged"]
+    assess             = assessment_data["data"]
+    is_damaged         = assess["is_damaged"]
+    damage_fee         = assess["damage_fee"]
+    damage_description = assess.get("damage_description", "No damage detected")
+    total_penalty      = late_fee + damage_fee
 
-    # ── Step 5+6: Calculate penalty fees ──────────────────────────────────────
-    # Fee rules:
-    #   Late fee   → $50 flat if returned after end_date
-    #   Damage fee → $150 flat if dress is damaged
-    late_fee   = 50.00  if is_late    else 0.00
-    damage_fee = 150.00 if is_damaged else 0.00
-    total_penalty = late_fee + damage_fee
-
-    penalty_id = None
-
+    # ── Step 4: Create penalty invoice if needed ──────────────────────────────
     if total_penalty > 0:
         try:
-            penalty_response = requests.post(
-                f"{RETURN_ASSESSMENT_URL}/penalty",
-                json={
-                    "assessment_id": assessment_id,
-                    "late_fee":      late_fee,
-                    "damage_fee":    damage_fee
-                }
-            )
-            penalty_data = penalty_response.json()
-        except Exception as e:
-            return jsonify({"code": 500, "message": f"Penalty service error: {str(e)}"}), 500
-
-        if penalty_response.status_code != 201:
-            return jsonify({
-                "code": 500,
-                "message": "Failed to create penalty record."
-            }), 500
-
-        penalty_id = penalty_data["data"]["penalty_id"]
-
-        # ── Step 7: Create penalty invoice via Invoice Service ─────────────────
-        try:
-            invoice_response = requests.post(
+            requests.post(
                 f"{INVOICE_URL}/invoice",
-                json={
-                    "rental_id": rental_id,
-                    "amount":    total_penalty,
-                    "type":      "PENALTY"
-                }
+                json={"rental_id": rental_id, "amount": total_penalty, "type": "PENALTY"}
             )
         except Exception as e:
-            return jsonify({"code": 500, "message": f"Invoice service error: {str(e)}"}), 500
+            pass  # non-critical for the return flow
 
-        if invoice_response.status_code != 201:
-            return jsonify({
-                "code": 500,
-                "message": "Failed to create penalty invoice."
-            }), 500
-
-    # ── Step 8: Update dress availability in Inventory Service ────────────────
+    # ── Step 5: Update dress availability ────────────────────────────────────
     try:
-        inventory_response = requests.put(
+        requests.put(
             f"{INVENTORY_URL}/inventory/{dress_id}",
             json={"is_available": True}
         )
-    except Exception as e:
-        return jsonify({"code": 500, "message": f"Inventory service error: {str(e)}"}), 500
+    except Exception:
+        pass
 
-    if inventory_response.status_code != 200:
-        return jsonify({
-            "code": 500,
-            "message": f"Failed to update inventory for dress {dress_id}."
-        }), 500
-
-    # ── Step 9: Update rental status to COMPLETED ─────────────────────────────
+    # ── Step 6: Mark rental COMPLETED ────────────────────────────────────────
     try:
-        update_rental_response = requests.put(
+        requests.put(
             f"{RENTAL_URL}/rental/{rental_id}",
             json={"status": "COMPLETED"}
         )
     except Exception as e:
-        return jsonify({"code": 500, "message": f"Rental service error: {str(e)}"}), 500
+        return jsonify({"code": 500, "message": f"Failed to update rental: {str(e)}"}), 500
 
-    if update_rental_response.status_code != 200:
-        return jsonify({
-            "code": 500,
-            "message": f"Failed to update rental {rental_id} status."
-        }), 500
-
-    # ── Step 10: Return updated order summary to UI ───────────────────────────
+    # ── Step 7: Return invoice data to UI ────────────────────────────────────
     return jsonify({
         "code": 200,
         "data": {
-            "rental_id":     rental_id,
-            "dress_id":      dress_id,
-            "status":        "COMPLETED",
-            "is_late":       is_late,
-            "is_damaged":    is_damaged,
-            "late_fee":      late_fee,
-            "damage_fee":    damage_fee,
-            "total_penalty": total_penalty,
-            "penalty_id":    penalty_id
+            "rental_id":          rental_id,
+            "dress_id":           dress_id,
+            "is_damaged":         is_damaged,
+            "damage_fee":         damage_fee,
+            "days_late":          days_late,
+            "late_fee":           late_fee,
+            "total_penalty":      total_penalty,
+            "damage_description": damage_description,
+            "status":             "COMPLETED"
         }
     })
 
