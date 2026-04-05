@@ -66,7 +66,7 @@
           <p>Your fitting appointment has been scheduled.</p>
           <p><strong>Booking ID:</strong> {{ confirmedBookingId }}</p>
           <p><strong>Date:</strong> {{ formatDate(confirmedSlotDate) }}</p>
-          <RouterLink to="/" class="back-home-btn">
+          <RouterLink to="/dresses" class="back-home-btn">
             Back to Dresses
           </RouterLink>
         </div>
