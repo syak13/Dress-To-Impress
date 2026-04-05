@@ -11,7 +11,7 @@ INVENTORY_URL    = os.environ.get('INVENTORY_URL',    'http://localhost:5001')
 CUSTOMER_URL     = os.environ.get('CUSTOMER_URL',     'http://localhost:5000')
 RENTAL_URL       = os.environ.get('RENTAL_URL',       'http://localhost:5004')
 INVOICE_URL      = os.environ.get('INVOICE_URL',      'http://localhost:5005')
-NOTIFICATION_URL = os.environ.get('NOTIFICATION_URL', 'http://localhost:5003')
+NOTIFICATION_URL = os.environ.get('NOTIFICATION_URL', 'https://personal-oqeeivkb.outsystemscloud.com/NotificationsAtomicMicroservice/rest/Notifications/SendNotification')
 
 
 # ─── UC3: PLACE A RENTAL ORDER ───────────────────────────────────────────────
@@ -140,7 +140,7 @@ def place_rental_order():
     # ── Step 8: Send confirmation via Notification Service (AMQP) ─────────────
     try:
         requests.post(
-            f"{NOTIFICATION_URL}/notifications",
+            f"{NOTIFICATION_URL}",
             json={
                 "customer_id": customer_id,
                 "phone":       customer["phone"],
@@ -150,8 +150,10 @@ def place_rental_order():
                     f"Rental period: {start_date} to {end_date}. "
                     f"Amount charged: ${dress_price}. "
                     f"Rental ID: {rental_id}, Invoice ID: {invoice['invoice_id']}."
-                )
-            }
+                ),
+                "phone": customer.get("phone", "+18777804236")
+            },
+            timeout=5
         )
     except Exception as e:
         # notification failure should not block the rental confirmation
