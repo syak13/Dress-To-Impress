@@ -75,44 +75,91 @@ def calculate_is_late(end_date_str: str) -> bool:
         return False
     return date.today() > end_dt
 
-# CHANGED: Now uses Groq vision (llama-4-scout)
-def analyze_dress_damage(image_file):
-    """Call Groq Vision API to analyze dress damage."""
+def analyze_dress_damage(image_file, original_image_file=None):
+    """Call Groq Vision API to analyze dress damage.
+    If original_image_file is provided, compares returned dress against original.
+    """
     try:
-        # Read and encode image to base64 (same pattern as reviews.py)
-        image_data = base64.b64encode(image_file.read()).decode('utf-8')
+        return_mime = image_file.content_type or 'image/jpeg'
+        return_data = base64.b64encode(image_file.read()).decode('utf-8')
+
+        if original_image_file:
+            # ── Two-image comparison mode ──────────────────────────────────────
+            orig_mime     = original_image_file.content_type or 'image/jpeg'
+            original_data = base64.b64encode(original_image_file.read()).decode('utf-8')
+            content = [
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:{orig_mime};base64,{original_data}"}
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:{return_mime};base64,{return_data}"}
+                },
+                {
+                    "type": "text",
+                    "text": (
+                        "You are a strict professional dress rental damage inspector. "
+                        "IMAGE 1 is the ORIGINAL dress as it was when rented out. "
+                        "IMAGE 2 is the dress as returned by the customer. "
+                        "\n\n"
+                        "Your job: carefully compare the two images and identify NEW damage on the returned dress "
+                        "that was NOT present in the original. Look specifically for:\n"
+                        "- Stains (food, drink, makeup, dirt)\n"
+                        "- Tears or rips in the fabric\n"
+                        "- Holes (new ones not part of the original design)\n"
+                        "- Missing embellishments (sequins, beads, buttons, straps)\n"
+                        "- Burns or scorch marks\n"
+                        "- Fading or discolouration not in the original\n"
+                        "- Structural damage (broken boning, collapsed shape)\n"
+                        "\n"
+                        "IMPORTANT RULES:\n"
+                        "- Cutouts, fringe, feathers, sheer panels, or decorative holes that appear in the ORIGINAL are part of the design — do NOT flag these as damage.\n"
+                        "- Only flag differences that are clearly NEW damage not present in the original.\n"
+                        "- Be strict: if in doubt whether something is design or damage, compare closely with the original.\n"
+                        "- damage_percentage represents how much of the dress surface is affected (0 = none, 100 = total loss).\n"
+                        "\n"
+                        "Reply with ONLY valid JSON — no markdown, no preamble. "
+                        'Format: {"damage_percentage": 0-100, "is_damaged": true or false, '
+                        '"severity": "none" or "mild" or "moderate" or "severe", '
+                        '"description": "2-3 sentences: list each type of damage found and where on the dress it appears, or state no new damage found compared to original"}'
+                    )
+                }
+            ]
+        else:
+            # ── Single-image fallback mode ─────────────────────────────────────
+            content = [
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:{return_mime};base64,{return_data}"}
+                },
+                {
+                    "type": "text",
+                    "text": (
+                        "You are a strict professional dress rental damage inspector. "
+                        "Analyze this returned rental dress image for damage. Look specifically for:\n"
+                        "- Stains (food, drink, makeup, dirt)\n"
+                        "- Tears or rips in the fabric\n"
+                        "- Holes not part of the original design\n"
+                        "- Missing embellishments (sequins, beads, buttons)\n"
+                        "- Burns, fading, or discolouration\n"
+                        "- Structural damage\n"
+                        "\n"
+                        "damage_percentage represents how much of the dress surface is affected (0 = none, 100 = total loss). "
+                        "Reply with ONLY valid JSON — no markdown, no preamble. "
+                        'Format: {"damage_percentage": 0-100, "is_damaged": true or false, '
+                        '"severity": "none" or "mild" or "moderate" or "severe", '
+                        '"description": "2-3 sentences describing the damage found and where on the dress, or state no damage detected"}'
+                    )
+                }
+            ]
 
         response = groq_client.chat.completions.create(
-            model="meta-llama/llama-4-scout-17b-16e-instruct",  # vision model
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{image_data}"
-                            }
-                        },
-                        {
-                            "type": "text",
-                            "text": (
-                                "Analyze this rental dress image for damage. "
-                                "Reply with ONLY valid JSON, no markdown, no explanation. "
-                                "Format: "
-                                '{"damage_percentage": 0-100, '
-                                '"is_damaged": true or false, '
-                                '"severity": "none" or "mild" or "moderate" or "severe", '
-                                '"description": "one sentence describing the damage or lack of it"}'
-                            )
-                        }
-                    ]
-                }
-            ],
-            max_tokens=150
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            messages=[{"role": "user", "content": content}],
+            max_tokens=400
         )
 
-        # Clean and parse the JSON response
         raw = response.choices[0].message.content.strip()
         raw = raw.replace("```json", "").replace("```", "").strip()
         ai_result = json.loads(raw)
@@ -120,7 +167,6 @@ def analyze_dress_damage(image_file):
 
     except Exception as e:
         print(f"Groq analysis failed: {e}")
-        # Demo fallback — safe default for presentation
         return {
             "damage_percentage": 35,
             "is_damaged": True,
@@ -158,11 +204,15 @@ def create_ai_assessment():
     if image_file.filename == '':
         return jsonify({"code": 400, "message": "No image selected"}), 400
 
+    original_image_file = request.files.get('original_image')  # optional
+
     image_file.seek(0)
+    if original_image_file:
+        original_image_file.seek(0)
     is_late = calculate_is_late(end_date) if end_date else False
 
     try:
-        ai_result = analyze_dress_damage(image_file)
+        ai_result = analyze_dress_damage(image_file, original_image_file)
 
         damage_percent = ai_result.get('damage_percentage', 0)
         is_damaged     = ai_result.get('is_damaged', False)

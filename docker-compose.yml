@@ -153,6 +153,8 @@ services:
       - inventory_service
       - return_assessment_service
       - invoice_service
+    volumes:
+      - ./frontend/public/images:/images:ro
     environment:
       - RENTAL_URL=http://rental_service:5004
       - INVENTORY_URL=http://inventory_service:5001
