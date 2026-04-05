@@ -122,7 +122,7 @@ services:
       - CUSTOMER_URL=http://customer_service:5000
       - INVENTORY_URL=http://inventory_service:5001
       - BOOKING_URL=http://booking_service:5002
-      - NOTIFICATION_URL=http://notification_service:5003
+      - NOTIFICATION_URL=https://personal-oqeeivkb.outsystemscloud.com/NotificationsAtomicMicroservice/rest/Notifications/SendNotification
 
   place_rental_order:
     build: ./composite/composite_rental
@@ -141,7 +141,7 @@ services:
       - INVENTORY_URL=http://inventory_service:5001
       - RENTAL_URL=http://rental_service:5004
       - INVOICE_URL=http://invoice_service:5005
-      - NOTIFICATION_URL=http://notification_service:5003
+      - NOTIFICATION_URL=https://personal-oqeeivkb.outsystemscloud.com/NotificationsAtomicMicroservice/rest/Notifications/SendNotification
 
   returning_service:
     build: ./composite/composite_return
