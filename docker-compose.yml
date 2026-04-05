@@ -162,6 +162,39 @@ services:
       - RETURN_ASSESSMENT_URL=http://return_assessment_service:5006
       - INVOICE_URL=http://invoice_service:5005
 
+  # ─── API GATEWAY (KONG) ─────────────────────────────────────────────────────
+  kong:
+    image: kong:3.6
+    container_name: kong-gateway
+    restart: unless-stopped
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /kong/declarative/kong.yml
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001"
+      KONG_PROXY_LISTEN: "0.0.0.0:8000"
+    ports:
+      - "8000:8000"   # Proxy — all frontend traffic enters here
+      - "8001:8001"   # Admin API — inspect routes, services, plugins live
+    volumes:
+      - ./kong/kong.yml:/kong/declarative/kong.yml:ro
+    depends_on:
+      - customer_service
+      - inventory_service
+      - rental_service
+      - invoice_service
+      - fitting_service
+      - place_rental_order
+      - returning_service
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   phpmyadmin:
     image: phpmyadmin:latest
     container_name: dress_phpmyadmin

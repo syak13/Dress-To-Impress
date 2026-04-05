@@ -50,7 +50,6 @@ CREATE TABLE bookings (
     booking_id INT AUTO_INCREMENT PRIMARY KEY,
     customer_id INT NOT NULL,
     dress_id INT NOT NULL,
-    calendar_event_id VARCHAR(255),
     slot_datetime DATETIME NOT NULL,
     status ENUM('CONFIRMED', 'CANCELLED') DEFAULT 'CONFIRMED',
     FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
@@ -132,10 +131,10 @@ INSERT INTO inventory (dress_id, name, size, price, color, img, unavailable_date
 (202, 'Navy Velvet', 'M',   120.00, 'Navy', '/images/dress_blue.jpeg', '["2026-03-25","2026-03-26","2026-03-30","2026-03-31"]', TRUE),
 (203, 'Lipstick Tulle', 'L', 90.00, 'Red', '/images/dress_red.jpeg', '["2026-04-01"]',                                        TRUE);
 
-INSERT INTO bookings (customer_id, dress_id, calendar_event_id, slot_datetime, status) VALUES
-(1, 101, 'evt_xyz123', '2026-04-15 10:00:00', 'CONFIRMED'),
-(2, 102, 'evt_abc456', '2026-05-20 14:30:00', 'CONFIRMED'),
-(3, 103, 'evt_def789', '2026-03-01 09:00:00', 'CANCELLED');
+INSERT INTO bookings (customer_id, dress_id, slot_datetime, status) VALUES
+(1, 101, '2026-04-15 10:00:00', 'CONFIRMED'),
+(2, 102, '2026-05-20 14:30:00', 'CONFIRMED'),
+(3, 103, '2026-03-01 09:00:00', 'CANCELLED');
 
 INSERT INTO notifications (customer_id, email, phone, message, status) VALUES
 (1, 'alice@example.com', '', 'Your fitting is confirmed for April 15.', 'SENT'),

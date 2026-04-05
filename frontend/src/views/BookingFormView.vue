@@ -108,7 +108,7 @@ onMounted(async () => {
 
   const dressId = route.params.dressId
   if (dressId) {
-    const res = await fetch(`http://localhost:5001/inventory/${dressId}`)
+    const res = await fetch(`http://localhost:8000/inventory/${dressId}`)
     const data = await res.json()
     if (data.code === 200) {
       selectedDress.value = data.data
@@ -147,7 +147,7 @@ async function handleBooking() {
   }
 
   try {
-    await fetch(`http://localhost:5000/customer/${user.customer_id}`, {
+    await fetch(`http://localhost:8000/customer/${user.customer_id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -159,7 +159,7 @@ async function handleBooking() {
 
     const slotDatetime = fittingForm.fittingDate
 
-    const response = await fetch('http://localhost:5010/fitting/schedule', {
+    const response = await fetch('http://localhost:8000/fitting/schedule', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

@@ -72,7 +72,7 @@ let cardElement = null
 onMounted(async () => {
   // Load dress details
   const dressId = route.params.dressId
-  const res = await fetch(`http://localhost:5001/inventory/${dressId}`)
+  const res = await fetch(`http://localhost:8000/inventory/${dressId}`)
   const data = await res.json()
   if (data.code === 200) dress.value = data.data
 
@@ -114,7 +114,7 @@ async function handlePayment() {
   // Step 1: Create rental order → gets Stripe client_secret from backend
   let orderData
   try {
-    const orderRes = await fetch('http://localhost:5011/rental-order', {
+    const orderRes = await fetch('http://localhost:8000/rental-order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -161,7 +161,7 @@ async function handlePayment() {
 
   // Step 3: Mark invoice as PAID
   if (paymentIntent.status === 'succeeded') {
-    await fetch(`http://localhost:5005/invoice/${invoice_id}`, {
+    await fetch(`http://localhost:8000/invoice/${invoice_id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'PAID', stripe_id: paymentIntent.id })

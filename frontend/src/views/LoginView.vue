@@ -87,7 +87,7 @@ async function handleLogin() {
   loginError.value = ''
   loginLoading.value = true
   try {
-    const res = await fetch('http://localhost:5000/customer/login', {
+    const res = await fetch('http://localhost:8000/customer/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: loginForm.email, password: loginForm.password })
@@ -112,7 +112,7 @@ async function handleRegister() {
   registerSuccess.value = ''
   registerLoading.value = true
   try {
-    const res = await fetch('http://localhost:5000/customer/register', {
+    const res = await fetch('http://localhost:8000/customer/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
