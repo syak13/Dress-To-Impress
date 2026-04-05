@@ -143,7 +143,7 @@ def place_rental_order():
             f"{NOTIFICATION_URL}/notifications",
             json={
                 "customer_id": customer_id,
-                "email":       customer["email"],
+                "phone":       customer["phone"],
                 "message": (
                     f"Hi {customer['name']}, your rental order has been confirmed! "
                     f"Dress ID: {dress_id} (Size: {dress_size}), "

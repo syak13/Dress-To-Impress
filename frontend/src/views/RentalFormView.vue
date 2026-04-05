@@ -75,7 +75,7 @@
         <!-- Success State -->
         <div v-if="paymentSuccess" class="success-box">
           <h4>🎉 Rental Confirmed!</h4>
-          <p>Your dress is reserved. You'll receive a confirmation email shortly.</p>
+          <p>Your dress is reserved. You'll receive a confirmation SMS shortly.</p>
           <p><strong>Rental ID:</strong> {{ confirmedRentalId }}</p>
           <RouterLink to="/" class="back-home-btn">
             Back to Dresses
@@ -87,17 +87,17 @@
     <div v-else class="loading">
       Loading your booking...
     </div>
-  </section>
 
-  <!-- Error Popup -->
-  <div v-if="showErrorPopup" class="popup-overlay" @click.self="showErrorPopup = false">
-    <div class="popup-box">
-      <div class="popup-icon">✕</div>
-      <h4>Payment Unsuccessful</h4>
-      <p>{{ popupMessage }}</p>
-      <button class="popup-btn" @click="showErrorPopup = false">Try Again</button>
+    <!-- Error Popup -->
+    <div v-if="showErrorPopup" class="popup-overlay" @click.self="showErrorPopup = false">
+      <div class="popup-box">
+        <div class="popup-icon">✕</div>
+        <h4>Payment Unsuccessful</h4>
+        <p>{{ popupMessage }}</p>
+        <button class="popup-btn" @click="showErrorPopup = false">Try Again</button>
+      </div>
     </div>
-  </div>
+  </section>
 </template>
 
 <script setup>
@@ -124,11 +124,9 @@ let stripe = null
 let cardElement = null
 
 onMounted(async () => {
-  // Pre-fill dates from availability selection
   rentForm.startDate = route.query.startDate || ''
   rentForm.endDate = route.query.endDate || ''
 
-  // Auto-fill customer info from localStorage (login session)
   const stored = localStorage.getItem('dti_user')
   if (stored) {
     const user = JSON.parse(stored)
@@ -137,14 +135,13 @@ onMounted(async () => {
     customerDetails.phone = user.phone || ''
   }
 
-  // Load dress details
   const dressId = route.params.dressId
   if (dressId) {
     const res = await fetch(`http://localhost:5001/inventory/${dressId}`)
     const data = await res.json()
     if (data.code === 200) {
       selectedDress.value = data.data
-      await nextTick() // wait for v-if="selectedDress" to render #card-element
+      await nextTick() 
     }
   }
 
@@ -204,10 +201,18 @@ const formatDate = (dateStr) => {
 
 async function handlePayment() {
   loading.value = true
+  apiError.value = ''
+  showErrorPopup.value = false
 
   const user = JSON.parse(localStorage.getItem('dti_user'))
 
-  // Step 1: Create rental order (rental starts as PENDING)
+  if (!user) {
+    popupMessage.value = 'Please log in to complete your rental.'
+    showErrorPopup.value = true
+    loading.value = false
+    return
+  }
+
   let orderData
   try {
     const orderRes = await fetch('http://localhost:5011/rental-order', {
@@ -221,8 +226,9 @@ async function handlePayment() {
       })
     })
     const orderJson = await orderRes.json()
+    
     if (orderJson.code !== 201) {
-      popupMessage.value = 'We could not process your booking at this time. Please try again shortly.'
+      popupMessage.value = orderJson.message || 'We could not process your booking at this time. Please try again shortly.'
       showErrorPopup.value = true
       loading.value = false
       return
@@ -237,7 +243,6 @@ async function handlePayment() {
 
   const { client_secret, invoice_id, rental_id } = orderData
 
-  // Step 2: Confirm payment with Stripe
   const { error, paymentIntent } = await stripe.confirmCardPayment(client_secret, {
     payment_method: {
       card: cardElement,
@@ -250,38 +255,32 @@ async function handlePayment() {
   })
 
   if (error) {
-    // Mark rental as ERROR
-    await fetch(`http://localhost:5004/rental/${rental_id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'ERROR' })
-    })
     popupMessage.value = error.message
     showErrorPopup.value = true
     loading.value = false
     return
   }
 
-  // Step 3: Payment succeeded — update invoice + rental
   if (paymentIntent.status === 'succeeded') {
-    await fetch(`http://localhost:5005/invoice/${invoice_id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'PAID', stripe_id: paymentIntent.id })
-    })
-    await fetch(`http://localhost:5004/rental/${rental_id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'ACTIVE' })
-    })
+    try {
+      await fetch(`http://localhost:5005/invoice/${invoice_id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          status: 'PAID', 
+          stripe_id: paymentIntent.id 
+        })
+      })
+    } catch (e) {
+      console.error('Invoice update failed:', e)
+    }
+
     confirmedRentalId.value = rental_id
     paymentSuccess.value = true
   }
 
   loading.value = false
 }
-
-
 </script>
 
 <style scoped>
