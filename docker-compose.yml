@@ -124,6 +124,20 @@ services:
       - BOOKING_URL=http://booking_service:5002
       - NOTIFICATION_URL=https://personal-oqeeivkb.outsystemscloud.com/NotificationsAtomicMicroservice/rest/Notifications/SendNotification
 
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5673:5672"   # AMQP protocol port
+      - "15672:15672" # Web UI dashboard port
+  notification-worker:
+    build: ./notification-worker  # We will create this folder next
+    restart: always
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - NOTIFICATION_URL=https://personal-oqeeivkb.outsystemscloud.com/NotificationsAtomicMicroservice/rest/Notifications/SendNotification
+    depends_on:
+      - rabbitmq
+
   place_rental_order:
     build: ./composite/composite_rental
     container_name: place-rental-order
