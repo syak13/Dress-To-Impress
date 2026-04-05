@@ -3,9 +3,9 @@ from flask_sqlalchemy import SQLAlchemy
 import os
 from flask_cors import CORS
 
-
 app = Flask(__name__)
 CORS(app)
+
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
     'DBURI', 'mysql+mysqlconnector://root:root@localhost:3306/dress_rental'
 )
@@ -46,36 +46,30 @@ class Inventory(db.Model):
             "price": float(self.price),
             "color": self.color,
             "img": self.img,
-            "unavailable_dates": self.unavailable_dates,
+            "unavailable_dates": self.unavailable_dates or [],
             "is_available": self.is_available
         }
 
 
-# ─── GET ALL ─────────────────────────────────────────────────────────────────
-
-@app.route("/inventory")
+@app.route("/inventory", methods=['GET'])
 def get_all():
     dresses = db.session.scalars(db.select(Inventory)).all()
 
-    if len(dresses):
+    if dresses:
         return jsonify({
             "code": 200,
             "data": {
                 "dresses": [dress.json() for dress in dresses]
             }
-        })
+        }), 200
+
     return jsonify({
         "code": 404,
         "message": "No dresses found in inventory."
     }), 404
 
 
-# ─── GET BY DRESS ID ──────────────────────────────────────────────────────────
-# Used by: Fitting Service (UC2) step 2-3
-#          Place Rental Order (UC3) step 4-5  → also returns price
-#          Returning Service (UC4) step 2-3
-
-@app.route("/inventory/<int:dress_id>")
+@app.route("/inventory/<int:dress_id>", methods=['GET'])
 def get_by_dress_id(dress_id):
     dress = db.session.scalar(
         db.select(Inventory).filter_by(dress_id=dress_id)
@@ -85,17 +79,15 @@ def get_by_dress_id(dress_id):
         return jsonify({
             "code": 200,
             "data": dress.json()
-        })
+        }), 200
+
     return jsonify({
         "code": 404,
         "message": f"Dress {dress_id} not found."
     }), 404
 
 
-# ─── GET AVAILABLE DRESSES ────────────────────────────────────────────────────
-# Used by: Fitting Service (UC2) step 1 → get available fitting slots
-
-@app.route("/inventory/available")
+@app.route("/inventory/available", methods=['GET'])
 def get_available():
     dresses = db.session.scalars(
         db.select(Inventory).filter_by(is_available=True)
@@ -107,16 +99,13 @@ def get_available():
             "data": {
                 "dresses": [dress.json() for dress in dresses]
             }
-        })
+        }), 200
+
     return jsonify({
         "code": 404,
         "message": "No available dresses found."
     }), 404
 
-
-# ─── UPDATE AVAILABILITY ──────────────────────────────────────────────────────
-# Used by: Place Rental Order (UC3) step 4 → is_available: False (dress rented)
-#          Returning Service  (UC4) step 8 → is_available: True  (dress returned)
 
 @app.route("/inventory/<int:dress_id>", methods=['PUT'])
 def update_inventory(dress_id):
@@ -130,7 +119,19 @@ def update_inventory(dress_id):
             "message": f"Dress {dress_id} not found."
         }), 404
 
-    data = request.get_json()
+    try:
+        data = request.get_json()
+    except Exception as e:
+        return jsonify({
+            "code": 400,
+            "message": f"Invalid JSON: {str(e)}"
+        }), 400
+
+    if not data:
+        return jsonify({
+            "code": 400,
+            "message": "Request body must be valid JSON."
+        }), 400
 
     if 'is_available' not in data:
         return jsonify({
@@ -141,12 +142,11 @@ def update_inventory(dress_id):
     try:
         dress.is_available = data['is_available']
 
-        # also update available dates if provided
         if 'unavailable_dates' in data:
             dress.unavailable_dates = data['unavailable_dates']
 
         db.session.commit()
-    except Exception as e:
+    except Exception:
         db.session.rollback()
         return jsonify({
             "code": 500,
@@ -156,14 +156,24 @@ def update_inventory(dress_id):
     return jsonify({
         "code": 200,
         "data": dress.json()
-    })
+    }), 200
 
-
-# ─── CREATE NEW DRESS ─────────────────────────────────────────────────────────
 
 @app.route("/inventory", methods=['POST'])
 def create_dress():
-    data = request.get_json()
+    try:
+        data = request.get_json()
+    except Exception as e:
+        return jsonify({
+            "code": 400,
+            "message": f"Invalid JSON: {str(e)}"
+        }), 400
+
+    if not data:
+        return jsonify({
+            "code": 400,
+            "message": "Request body must be valid JSON."
+        }), 400
 
     for field in ['dress_id', 'name', 'size', 'price', 'color', 'img']:
         if field not in data:
@@ -172,7 +182,10 @@ def create_dress():
                 "message": f"Missing required field: {field}"
             }), 400
 
-    if db.session.scalar(db.select(Inventory).filter_by(dress_id=data['dress_id'])):
+    existing_dress = db.session.scalar(
+        db.select(Inventory).filter_by(dress_id=data['dress_id'])
+    )
+    if existing_dress:
         return jsonify({
             "code": 400,
             "message": f"Dress {data['dress_id']} already exists."
@@ -192,7 +205,7 @@ def create_dress():
     try:
         db.session.add(dress)
         db.session.commit()
-    except Exception as e:
+    except Exception:
         db.session.rollback()
         return jsonify({
             "code": 500,

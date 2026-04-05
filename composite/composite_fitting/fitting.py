@@ -1,8 +1,10 @@
 from flask import Flask, request, jsonify
 import requests
 import os
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
 INVENTORY_URL    = os.environ.get('INVENTORY_URL',    'http://inventory_service:5001')
 BOOKING_URL      = os.environ.get('BOOKING_URL',      'http://booking_service:5002')
@@ -29,7 +31,7 @@ def get_available_dresses():
 
     return jsonify({
         "code": 200,
-        "data": data.get("data", [])
+        "data": data.get("data", {})
     }), 200
 
 
@@ -81,6 +83,17 @@ def schedule_fitting():
             "code": 500,
             "message": "Inventory response missing dress data."
         }), 500
+
+    unavailable_dates = dress.get("unavailable_dates", [])
+    if unavailable_dates is None:
+        unavailable_dates = []
+
+    date_only = slot_datetime.split(' ')[0]
+    if date_only in unavailable_dates:
+        return jsonify({
+            "code": 400,
+            "message": f"Dress {dress_id} is already booked for {date_only}."
+        }), 400
 
     if not dress.get("is_available", False):
         return jsonify({
@@ -141,6 +154,32 @@ def schedule_fitting():
         }), 500
 
     try:
+        updated_dates = list(unavailable_dates)
+        if date_only not in updated_dates:
+            updated_dates.append(date_only)
+
+        inventory_update_response = requests.put(
+            f"{INVENTORY_URL}/inventory/{dress_id}",
+            json={
+                "is_available": True,
+                "unavailable_dates": updated_dates
+            },
+            timeout=5
+        )
+        inventory_update_data = inventory_update_response.json()
+
+        if inventory_update_response.status_code != 200:
+            return jsonify({
+                "code": inventory_update_response.status_code,
+                "message": inventory_update_data.get("message", "Booking succeeded but inventory update failed.")
+            }), inventory_update_response.status_code
+    except Exception as e:
+        return jsonify({
+            "code": 500,
+            "message": f"Inventory update error: {str(e)}"
+        }), 500
+
+    try:
         requests.post(
             f"{NOTIFICATION_URL}/notifications",
             json={
@@ -197,6 +236,39 @@ def cancel_fitting(booking_id):
             "code": 500,
             "message": "Booking response missing booking data."
         }), 500
+
+    dress_id = booking.get("dress_id")
+    slot_datetime = booking.get("slot_datetime")
+
+    if dress_id is not None and slot_datetime is not None:
+        try:
+            # Get current inventory state
+            inventory_response = requests.get(
+                f"{INVENTORY_URL}/inventory/{dress_id}",
+                timeout=5
+            )
+            inventory_data = inventory_response.json()
+
+            if inventory_response.status_code == 200:
+                dress = inventory_data.get("data", {})
+                current_dates = dress.get("unavailable_dates", [])
+                if current_dates is None:
+                    current_dates = []
+
+                date_only = slot_datetime.split(' ')[0]
+
+                updated_dates = [d for d in current_dates if d != date_only]
+
+                requests.put(
+                    f"{INVENTORY_URL}/inventory/{dress_id}",
+                    json={
+                        "is_available": True,
+                        "unavailable_dates": updated_dates
+                    },
+                    timeout=5
+                )
+        except Exception:
+            pass
 
     try:
         customer_response = requests.get(
