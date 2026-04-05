@@ -9,7 +9,7 @@ CORS(app)
 INVENTORY_URL    = os.environ.get('INVENTORY_URL',    'http://inventory_service:5001')
 BOOKING_URL      = os.environ.get('BOOKING_URL',      'http://booking_service:5002')
 CUSTOMER_URL     = os.environ.get('CUSTOMER_URL',     'http://customer_service:5000')
-NOTIFICATION_URL = os.environ.get('NOTIFICATION_URL', 'http://notification_service:5003')
+NOTIFICATION_URL = os.environ.get('NOTIFICATION_URL', 'https://personal-oqeeivkb.outsystemscloud.com/NotificationsAtomicMicroservice/rest/Notifications/SendNotification')
 
 
 @app.route("/fitting/available", methods=['GET'])
@@ -181,7 +181,7 @@ def schedule_fitting():
 
     try:
         requests.post(
-            f"{NOTIFICATION_URL}/notifications",
+            f"{NOTIFICATION_URL}",
             json={
                 "customer_id": customer_id,
                 "email": customer["email"],
@@ -189,7 +189,8 @@ def schedule_fitting():
                     f"Hi {customer['name']}, your fitting appointment for dress "
                     f"(ID: {dress_id}, Size: {dress['size']}) is confirmed on "
                     f"{slot_datetime}. Booking ID: {booking['booking_id']}."
-                )
+                ),
+                "phone": customer.get("phone", "+18777804236")
             },
             timeout=5
         )
@@ -280,14 +281,15 @@ def cancel_fitting(booking_id):
 
         if customer:
             requests.post(
-                f"{NOTIFICATION_URL}/notifications",
+                f"{NOTIFICATION_URL}",
                 json={
                     "customer_id": booking["customer_id"],
                     "email": customer["email"],
                     "message": (
                         f"Hi {customer['name']}, your fitting appointment "
                         f"(Booking ID: {booking_id}) has been successfully cancelled."
-                    )
+                    ),
+                    "phone": customer.get("phone", "+18777804236")
                 },
                 timeout=5
             )
