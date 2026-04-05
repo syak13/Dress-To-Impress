@@ -2,6 +2,8 @@ from flask import Flask, request, jsonify
 import requests
 import os
 from flask_cors import CORS
+import pika
+import json
 
 app = Flask(__name__)
 CORS(app)
@@ -180,9 +182,8 @@ def schedule_fitting():
         }), 500
 
     try:
-        requests.post(
-            f"{NOTIFICATION_URL}",
-            json={
+    # 1. Prepare the exact same data
+        notification_data = {
                 "customer_id": customer_id,
                 "email": customer["email"],
                 "message": (
@@ -191,11 +192,29 @@ def schedule_fitting():
                     f"{slot_datetime}. Booking ID: {booking['booking_id']}."
                 ),
                 "phone": customer.get("phone", "+18777804236")
-            },
-            timeout=5
+        }
+
+        # 2. Connect to RabbitMQ (the "Post Office")
+        connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
+        channel = connection.channel()
+
+        # 3. Ensure the queue exists
+        channel.queue_declare(queue='notifications_queue', durable=True)
+
+        # 4. Drop the message in the queue
+        channel.basic_publish(
+            exchange='',
+            routing_key='notifications_queue',
+            body=json.dumps(notification_data),
+            properties=pika.BasicProperties(
+                delivery_mode=2,  # Make message persistent so it survives restarts
+            )
         )
-    except Exception:
-        pass
+        connection.close()
+        print("[DEBUG] Message dropped into RabbitMQ successfully!", flush=True)
+
+    except Exception as e:
+        print(f"[ERROR] Failed to send to RabbitMQ: {str(e)}", flush=True)
 
     return jsonify({
         "code": 201,
@@ -272,17 +291,8 @@ def cancel_fitting(booking_id):
             pass
 
     try:
-        customer_response = requests.get(
-            f"{CUSTOMER_URL}/customer/{booking['customer_id']}",
-            timeout=5
-        )
-        customer_data = customer_response.json()
-        customer = customer_data.get("data")
-
-        if customer:
-            requests.post(
-                f"{NOTIFICATION_URL}",
-                json={
+    # 1. Prepare the exact same data
+        notification_data = {
                     "customer_id": booking["customer_id"],
                     "email": customer["email"],
                     "message": (
@@ -290,11 +300,29 @@ def cancel_fitting(booking_id):
                         f"(Booking ID: {booking_id}) has been successfully cancelled."
                     ),
                     "phone": customer.get("phone", "+18777804236")
-                },
-                timeout=5
+        }
+
+        # 2. Connect to RabbitMQ (the "Post Office")
+        connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
+        channel = connection.channel()
+
+        # 3. Ensure the queue exists
+        channel.queue_declare(queue='notifications_queue', durable=True)
+
+        # 4. Drop the message in the queue
+        channel.basic_publish(
+            exchange='',
+            routing_key='notifications_queue',
+            body=json.dumps(notification_data),
+            properties=pika.BasicProperties(
+                delivery_mode=2,  # Make message persistent so it survives restarts
             )
-    except Exception:
-        pass
+        )
+        connection.close()
+        print("[DEBUG] Message dropped into RabbitMQ successfully!", flush=True)
+
+    except Exception as e:
+        print(f"[ERROR] Failed to send to RabbitMQ: {str(e)}", flush=True)
 
     return jsonify({
         "code": 200,
