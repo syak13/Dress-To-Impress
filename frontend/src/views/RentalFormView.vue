@@ -102,10 +102,11 @@
 
 <script setup>
 import { reactive, ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
-import { useRoute, RouterLink } from 'vue-router'
+import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { loadStripe } from '@stripe/stripe-js'
 
-const route = useRoute()
+const route  = useRoute()
+const router = useRouter()
 
 const selectedDress = ref(null)
 const customerDetails = reactive({ name: '', phone: '', email: '' })
@@ -254,29 +255,68 @@ async function handlePayment() {
     }
   })
 
+  // ── Payment failed ────────────────────────────────────────────────────────
   if (error) {
+    try {
+      await fetch('http://localhost:5011/rental-order/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rental_id,
+          customer_id:    user.customer_id,
+          customer_name:  orderData.customer_name,
+          customer_phone: orderData.customer_phone,
+          reason:         error.message
+        })
+      })
+    } catch (e) {
+      console.error('Cancel rental failed:', e)
+    }
     popupMessage.value = error.message
     showErrorPopup.value = true
     loading.value = false
     return
   }
 
+  // ── Payment succeeded — fan-out via composite ─────────────────────────────
   if (paymentIntent.status === 'succeeded') {
     try {
-      await fetch(`http://localhost:5005/invoice/${invoice_id}`, {
-        method: 'PUT',
+      await fetch('http://localhost:5011/rental-order/confirm', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          status: 'PAID', 
-          stripe_id: paymentIntent.id 
+        body: JSON.stringify({
+          rental_id,
+          invoice_id,
+          stripe_id:      paymentIntent.id,
+          customer_id:    user.customer_id,
+          customer_name:  orderData.customer_name,
+          customer_phone: orderData.customer_phone,
+          dress_id:       selectedDress.value.dress_id,
+          dress_size:     orderData.dress_size,
+          start_date:     rentForm.startDate,
+          end_date:       rentForm.endDate,
+          amount:         totalPrice.value
         })
       })
     } catch (e) {
-      console.error('Invoice update failed:', e)
+      console.error('Confirm rental fan-out failed:', e)
     }
 
-    confirmedRentalId.value = rental_id
-    paymentSuccess.value = true
+    router.push({
+      name: 'rental-invoice',
+      state: {
+        order: {
+          rental_id,
+          customer_id:   user.customer_id,
+          customer_name: orderData.customer_name,
+          dress_name:    selectedDress.value.name,
+          dress_img:     selectedDress.value.img,
+          start_date:    rentForm.startDate,
+          end_date:      rentForm.endDate,
+          total:         totalPrice.value
+        }
+      }
+    })
   }
 
   loading.value = false
