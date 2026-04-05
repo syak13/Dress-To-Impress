@@ -99,7 +99,9 @@ def log_return_with_image():
         return jsonify({"code": 500, "message": f"Assessment service error: {str(e)}"}), 500
 
     if assessment_resp.status_code != 201:
-        return jsonify({"code": 500, "message": "Failed to create return assessment."}), 500
+        # Pass through not_a_dress error directly to the frontend
+        msg = assessment_data.get("message", "Failed to create return assessment.")
+        return jsonify({"code": 400, "message": msg}), 400
 
     assess             = assessment_data["data"]
     is_damaged         = assess["is_damaged"]

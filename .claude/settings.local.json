@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(curl -s -X POST http://localhost:5006/assessment/image -F rental_id=2 -F dress_id=202 -F end_date=2026-03-22 -F 'image=@c:\\\\Users\\\\Joeys\\\\Downloads\\\\SMU-Y2s2\\\\IS213\\\\Dress-To-Impress\\\\frontend\\\\public\\\\images\\\\dress_blue.jpeg')"
-    ]
-  }
-}

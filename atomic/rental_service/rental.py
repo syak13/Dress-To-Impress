@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask_cors import CORS
 import os
 
@@ -23,15 +23,17 @@ class Rental(db.Model):
     start_date  = db.Column(db.Date, nullable=False)
     end_date    = db.Column(db.Date, nullable=False)
     status      = db.Column(db.String(30), default='PENDING')
+    created_at  = db.Column(db.DateTime, default=datetime.now)
 
     def json(self):
         return {
-            "rental_id": self.rental_id,
+            "rental_id":  self.rental_id,
             "customer_id": self.customer_id,
-            "dress_id": self.dress_id,
+            "dress_id":   self.dress_id,
             "start_date": str(self.start_date),
-            "end_date": str(self.end_date),
-            "status": self.status
+            "end_date":   str(self.end_date),
+            "status":     self.status,
+            "created_at": self.created_at.isoformat() if self.created_at else None
         }
 
 # UC3 Step 2 — POST create a new rental
@@ -93,6 +95,20 @@ def update_rental(rental_id):
         return jsonify({"code": 500, "message": "An error occurred updating the rental."}), 500
 
     return jsonify({"code": 200, "data": rental.json()}), 200
+
+# Cleanup — GET rentals stuck in PENDING beyond N minutes
+@app.route("/rentals/stale-pending", methods=['GET'])
+def get_stale_pending():
+    minutes = int(request.args.get('minutes', 15))
+    cutoff  = datetime.now() - timedelta(minutes=minutes)
+    stale   = db.session.scalars(
+        db.select(Rental).where(
+            Rental.status == 'PENDING',
+            Rental.created_at <= cutoff
+        )
+    ).all()
+    return jsonify({"code": 200, "data": [r.json() for r in stale]})
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5004, debug=False)

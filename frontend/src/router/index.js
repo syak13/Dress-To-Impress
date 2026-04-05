@@ -11,6 +11,7 @@ import FittingAvailabilityView from '../views/FittingAvailabilityView.vue'
 import LoginView from '../views/LoginView.vue'
 import PaymentView from '../views/PaymentView.vue'
 import InvoiceView from '../views/InvoiceView.vue'
+import RentalInvoiceView from '../views/RentalInvoiceView.vue'
 
 const routes = [
   { path: '/', name: 'home', component: HomeView },
@@ -26,7 +27,8 @@ const routes = [
   { path: '/rentalform/:dressId', name: 'rentalform', component: RentalFormView, meta: { requiresAuth: true, role: 'customer' } },
   { path: '/fittingavailability/:dressId', name: 'fittingavailability', component: FittingAvailabilityView, meta: { requiresAuth: true, role: 'customer' } },
   { path: '/payment/:dressId', name: 'payment', component: PaymentView, meta: { requiresAuth: true, role: 'customer' } },
-  { path: '/invoice', name: 'invoice', component: InvoiceView, meta: { requiresAuth: true, role: 'employee' } }
+  { path: '/invoice', name: 'invoice', component: InvoiceView, meta: { requiresAuth: true, role: 'employee' } },
+  { path: '/rental-invoice', name: 'rental-invoice', component: RentalInvoiceView, meta: { requiresAuth: true, role: 'customer' } }
 ]
 
 const router = createRouter({

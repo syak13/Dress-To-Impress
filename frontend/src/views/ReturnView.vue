@@ -37,11 +37,14 @@
         <!-- Right: customer upload -->
         <div class="image-box">
           <p class="image-label">Upload Return Image</p>
-          <div class="upload-area" @click="triggerUpload">
-            <img v-if="uploadPreview" :src="uploadPreview" class="dress-img" alt="Uploaded" />
+          <div class="upload-area" :class="{ 'upload-error': notDressError }" @click="triggerUpload">
+            <img v-if="uploadPreview && !notDressError" :src="uploadPreview" class="dress-img" alt="Uploaded" />
             <div v-else class="upload-placeholder">
-              <span class="upload-icon">+</span>
-              <span>Click to upload image</span>
+              <span class="upload-icon" :style="notDressError ? 'background: #e53e3e' : ''">{{ notDressError ? '✕' : '+' }}</span>
+              <span v-if="notDressError" style="color: #c53030; font-weight: 700; text-align: center;">
+                That doesn't look like a dress.<br/>Click to upload again.
+              </span>
+              <span v-else>Click to upload image</span>
             </div>
           </div>
           <input
@@ -51,7 +54,7 @@
             class="hidden-input"
             @change="handleImageUpload"
           />
-          <p v-if="uploadedFile" class="file-info">{{ uploadedFile.name }}</p>
+          <p v-if="uploadedFile && !notDressError" class="file-info">{{ uploadedFile.name }}</p>
         </div>
       </div>
 
@@ -85,10 +88,11 @@ const lookupLoading = ref(false)
 const dressImage  = ref('')
 const rentalData  = ref(null)
 
-const uploadedFile  = ref(null)
-const uploadPreview = ref('')
-const submitError   = ref('')
-const submitLoading = ref(false)
+const uploadedFile   = ref(null)
+const uploadPreview  = ref('')
+const submitError    = ref('')
+const submitLoading  = ref(false)
+const notDressError  = ref(false)
 
 function triggerUpload() {
   document.getElementById('upload-input').click()
@@ -99,6 +103,8 @@ function handleImageUpload(event) {
   if (!file) return
   uploadedFile.value  = file
   uploadPreview.value = URL.createObjectURL(file)
+  notDressError.value = false
+  submitError.value   = ''
 }
 
 async function proceedToReturn() {
@@ -167,7 +173,13 @@ async function submitReturn() {
     const data = await res.json()
 
     if (data.code !== 200) {
-      submitError.value = data.message || 'Failed to process return.'
+      if (data.message === 'not_a_dress') {
+        notDressError.value = true
+        uploadedFile.value  = null
+        uploadPreview.value = ''
+      } else {
+        submitError.value = data.message || 'Failed to process return.'
+      }
       return
     }
 
@@ -349,6 +361,11 @@ input:focus {
 .upload-area:hover {
   border-color: var(--primary-pink);
   box-shadow: 0 8px 24px rgba(255, 154, 198, 0.2);
+}
+
+.upload-area.upload-error {
+  border-color: rgba(229, 62, 62, 0.6);
+  background: rgba(254, 242, 242, 0.95);
 }
 
 .upload-placeholder {

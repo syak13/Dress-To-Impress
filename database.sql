@@ -74,6 +74,7 @@ CREATE TABLE rentals (
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
     status ENUM('ACTIVE', 'COMPLETED', 'CANCELLED', 'ERROR', 'PENDING') DEFAULT 'PENDING',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
     FOREIGN KEY (dress_id) REFERENCES inventory(dress_id)
 );
