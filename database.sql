@@ -125,7 +125,7 @@ INSERT INTO customers (name, email, phone, password_hash, role) VALUES
 INSERT INTO inventory (dress_id, name, size, price, color, img, unavailable_dates, is_available) VALUES
 (101, 'Blush Satin Gown', 'S',   80.00, 'Pink', '/images/dress_pink.jpeg', '["2026-04-16","2026-04-17","2026-04-18","2026-04-19"]', TRUE),
 (102, 'Royal Blue Gown', 'M',   120.00, 'Blue', '/images/dress_turquiose.jpeg', '["2026-05-21","2026-05-22","2026-05-23"]',              TRUE),
-(103, 'Emerald Chiffon', 'L',   95.00, 'Green', '/images/dress_green.jpeg', '[]',                                                    FALSE),
+(103, 'Emerald Chiffon', 'L',   95.00, 'Green', '/images/dress_green.jpeg', '[]',                                                    TRUE),
 (201, 'Ivory Lace Maxi', 'S',   80.00,  'White', '/images/dress_white.jpeg', '["2026-06-01","2026-06-02"]',                           TRUE),
 (202, 'Navy Velvet', 'M',   120.00, 'Navy', '/images/dress_blue.jpeg', '["2026-03-25","2026-03-26","2026-03-30","2026-03-31"]', TRUE),
 (203, 'Lipstick Tulle', 'L', 90.00, 'Red', '/images/dress_red.jpeg', '["2026-04-01"]',                                        TRUE);

@@ -157,7 +157,7 @@ async function handleBooking() {
       })
     })
 
-    const slotDatetime = `${fittingForm.fittingDate} 10:00:00`
+    const slotDatetime = fittingForm.fittingDate
 
     const response = await fetch('http://localhost:5010/fitting/schedule', {
       method: 'POST',
