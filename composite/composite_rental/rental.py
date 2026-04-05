@@ -2,9 +2,24 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import requests
 import os
+import logging
+import threading
+import time
 from datetime import datetime
 import pika
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+# ─── LOGGING SETUP ────────────────────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    handlers=[
+        logging.FileHandler('rental_errors.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app)
@@ -222,19 +237,168 @@ def place_rental_order():
     return jsonify({
         "code": 201,
         "data": {
-            "rental_id":     rental_id,
-            "invoice_id":    invoice["invoice_id"],
-            "customer_id":   customer_id,
-            "customer_name": customer["name"],
-            "dress_id":      dress_id,
-            "dress_size":    dress_size,
-            "start_date":    start_date,
-            "end_date":      end_date,
-            "amount":        dress_price,
-            "status":        rental["status"],
-            "client_secret": client_secret
+            "rental_id":      rental_id,
+            "invoice_id":     invoice["invoice_id"],
+            "customer_id":    customer_id,
+            "customer_name":  customer["name"],
+            "customer_phone": customer["phone"],
+            "dress_id":       dress_id,
+            "dress_size":     dress_size,
+            "start_date":     start_date,
+            "end_date":       end_date,
+            "amount":         dress_price,
+            "status":         rental["status"],
+            "client_secret":  client_secret
         }
     }), 201
+
+
+# ─── UC3 CONFIRM: Fan-out after payment succeeds ──────────────────────────────
+@app.route("/rental-order/confirm", methods=['POST'])
+def confirm_rental_order():
+    """
+    Called by frontend after Stripe payment succeeds.
+    Fan-out: update rental ACTIVE + update invoice PAID + send notification (parallel).
+    Expected JSON: { rental_id, invoice_id, stripe_id, customer_id,
+                     customer_name, customer_phone, dress_id, dress_size,
+                     start_date, end_date, amount }
+    """
+    data = request.get_json()
+    rental_id      = data['rental_id']
+    invoice_id     = data['invoice_id']
+    stripe_id      = data['stripe_id']
+    customer_id    = data['customer_id']
+    customer_name  = data.get('customer_name', '')
+    customer_phone = data.get('customer_phone', '')
+    dress_id       = data.get('dress_id', '')
+    dress_size     = data.get('dress_size', '')
+    start_date     = data.get('start_date', '')
+    end_date       = data.get('end_date', '')
+    amount         = data.get('amount', 0)
+
+    fanout_errors = []
+
+    def update_rental_active():
+        r = requests.put(f"{RENTAL_URL}/rental/{rental_id}", json={"status": "ACTIVE"}, timeout=5)
+        if r.status_code != 200:
+            raise Exception(f"Rental update failed: {r.text}")
+        return "rental_active"
+
+    def update_invoice_paid():
+        r = requests.put(f"{INVOICE_URL}/invoice/{invoice_id}",
+                         json={"status": "PAID", "stripe_id": stripe_id}, timeout=5)
+        if r.status_code != 200:
+            raise Exception(f"Invoice update failed: {r.text}")
+        return "invoice_paid"
+
+    def send_success_notification():
+        r = requests.post(f"{NOTIFICATION_URL}/notifications", json={
+            "customer_id": customer_id,
+            "phone": customer_phone,
+            "message": (
+                f"Hi {customer_name}, your rental (ID: {rental_id}) for dress {dress_id} "
+                f"(Size: {dress_size}) from {start_date} to {end_date} is confirmed! "
+                f"Total paid: ${amount}. Please return on time and in good condition."
+            )
+        }, timeout=5)
+        if r.status_code not in (200, 201):
+            raise Exception(f"Notification failed: {r.text}")
+        return "notification_sent"
+
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = {
+            executor.submit(update_rental_active):      "update_rental",
+            executor.submit(update_invoice_paid):       "update_invoice",
+            executor.submit(send_success_notification): "send_notification",
+        }
+        for future in as_completed(futures):
+            task = futures[future]
+            try:
+                future.result()
+                logger.info(f"[CONFIRM] rental_id={rental_id} task={task} OK")
+            except Exception as e:
+                fanout_errors.append(f"{task}: {str(e)}")
+                logger.error(f"[CONFIRM] rental_id={rental_id} task={task} FAILED: {e}")
+
+    return jsonify({
+        "code": 200,
+        "data": {"rental_id": rental_id, "status": "ACTIVE"},
+        "warnings": fanout_errors
+    })
+
+
+# ─── UC3 CANCEL: Clean up after payment fails ────────────────────────────────
+@app.route("/rental-order/cancel", methods=['POST'])
+def cancel_rental_order():
+    """
+    Called by frontend when Stripe payment fails.
+    Cancels rental + sends failure notification.
+    Expected JSON: { rental_id, customer_id, customer_name, customer_phone, reason }
+    """
+    data           = request.get_json()
+    rental_id      = data['rental_id']
+    customer_id    = data.get('customer_id')
+    customer_name  = data.get('customer_name', '')
+    customer_phone = data.get('customer_phone', '')
+    reason         = data.get('reason', 'Payment failed')
+
+    logger.error(f"[CANCEL] rental_id={rental_id} customer_id={customer_id} reason={reason}")
+
+    # Cancel rental
+    try:
+        r = requests.put(f"{RENTAL_URL}/rental/{rental_id}", json={"status": "CANCELLED"}, timeout=5)
+        if r.status_code != 200:
+            logger.error(f"[CANCEL] Failed to cancel rental {rental_id}: {r.text}")
+    except Exception as e:
+        logger.error(f"[CANCEL] Rental cancellation error: {e}")
+
+    # Notify customer of failure
+    try:
+        requests.post(f"{NOTIFICATION_URL}/notifications", json={
+            "customer_id": customer_id,
+            "phone": customer_phone,
+            "message": (
+                f"Hi {customer_name}, unfortunately your rental order (ID: {rental_id}) "
+                f"could not be processed. Reason: {reason}. Please try again."
+            )
+        }, timeout=5)
+    except Exception as e:
+        logger.error(f"[CANCEL] Notification error for rental {rental_id}: {e}")
+
+    return jsonify({"code": 200, "data": {"rental_id": rental_id, "status": "CANCELLED"}})
+
+
+# ─── BACKGROUND CLEANUP: Cancel stuck PENDING rentals ────────────────────────
+STALE_MINUTES    = 5    # cancel PENDING rentals older than this
+CLEANUP_INTERVAL = 120  # run every 2 minutes
+
+def cleanup_stale_rentals():
+    while True:
+        time.sleep(CLEANUP_INTERVAL)
+        try:
+            resp = requests.get(
+                f"{RENTAL_URL}/rentals/stale-pending",
+                params={"minutes": STALE_MINUTES},
+                timeout=5
+            )
+            stale = resp.json().get("data", [])
+            for rental in stale:
+                rid = rental["rental_id"]
+                try:
+                    requests.put(
+                        f"{RENTAL_URL}/rental/{rid}",
+                        json={"status": "CANCELLED"},
+                        timeout=5
+                    )
+                    logger.warning(f"[CLEANUP] Auto-cancelled stale PENDING rental_id={rid}")
+                except Exception as e:
+                    logger.error(f"[CLEANUP] Failed to cancel rental_id={rid}: {e}")
+        except Exception as e:
+            logger.error(f"[CLEANUP] Stale check failed: {e}")
+
+cleanup_thread = threading.Thread(target=cleanup_stale_rentals, daemon=True)
+cleanup_thread.start()
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5011, debug=False)

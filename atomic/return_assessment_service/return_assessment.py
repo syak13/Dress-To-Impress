@@ -76,6 +76,35 @@ def calculate_is_late(end_date_str: str) -> bool:
         return False
     return date.today() > end_dt
 
+def is_dress_image(image_data: str, mime_type: str) -> bool:
+    """Quick pre-check: is the uploaded image actually a dress/garment?"""
+    try:
+        response = groq_client.chat.completions.create(
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            messages=[{
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:{mime_type};base64,{image_data}"}
+                    },
+                    {
+                        "type": "text",
+                        "text": (
+                            "Is this image showing a dress, gown, or clothing garment? "
+                            "Reply with ONLY the word YES or NO."
+                        )
+                    }
+                ]
+            }],
+            max_tokens=5
+        )
+        answer = response.choices[0].message.content.strip().upper()
+        return answer.startswith("YES")
+    except Exception as e:
+        print(f"Image validation failed: {e}", flush=True)
+        return True  # fail open — don't block if validation itself errors
+
 def analyze_dress_damage(image_file, original_image_file=None):
     """Call Groq Vision API to analyze dress damage.
     If original_image_file is provided, compares returned dress against original.
@@ -177,16 +206,14 @@ def analyze_dress_damage(image_file, original_image_file=None):
 
 # Fee calculation (completely unchanged — $20 to $200)
 def calculate_damage_fee(damage_percent):
-    if damage_percent <= 10:
+    if damage_percent <= 5:
         return 0.0
     elif damage_percent <= 25:
-        return 20.0
-    elif damage_percent <= 40:
-        return 50.0
-    elif damage_percent <= 60:
         return 100.0
-    elif damage_percent <= 80:
+    elif damage_percent <= 50:
         return 150.0
+    elif damage_percent <= 75:
+        return 175.0
     else:
         return 200.0
 
@@ -207,7 +234,19 @@ def create_ai_assessment():
 
     original_image_file = request.files.get('original_image')  # optional
 
+    # ── Pre-check: is the uploaded image actually a dress? ────────────────────
     image_file.seek(0)
+    return_mime       = image_file.content_type or 'image/jpeg'
+    return_data_check = base64.b64encode(image_file.read()).decode('utf-8')
+    image_file.seek(0)  # reset for full analysis below
+
+    if not is_dress_image(return_data_check, return_mime):
+        return jsonify({
+            "code": 400,
+            "message": "not_a_dress",
+            "detail": "The uploaded image does not appear to be a dress. Please upload a photo of the dress."
+        }), 400
+
     if original_image_file:
         original_image_file.seek(0)
     is_late = calculate_is_late(end_date) if end_date else False
