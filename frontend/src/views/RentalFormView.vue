@@ -77,7 +77,7 @@
           <h4>🎉 Rental Confirmed!</h4>
           <p>Your dress is reserved. You'll receive a confirmation SMS shortly.</p>
           <p><strong>Rental ID:</strong> {{ confirmedRentalId }}</p>
-          <RouterLink to="/" class="back-home-btn">
+          <RouterLink to="/dresses" class="back-home-btn">
             Back to Dresses
           </RouterLink>
         </div>

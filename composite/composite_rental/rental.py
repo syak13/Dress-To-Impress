@@ -4,14 +4,15 @@ import requests
 import os
 from datetime import datetime
 
-app = Flask(name)
+app = Flask(__name__)
 CORS(app)
 
-INVENTORY_URL    = os.environ.get('INVENTORY_URL',    'http://inventory_service:5001')
-CUSTOMER_URL     = os.environ.get('CUSTOMER_URL',     'http://customer_service:5000')
-RENTAL_URL       = os.environ.get('RENTAL_URL',       'http://rental_service:5004')
-INVOICE_URL      = os.environ.get('INVOICE_URL',      'http://invoice_service:5005')
-NOTIFICATION_URL = os.environ.get('NOTIFICATION_URL', 'http://notification_service:5003')
+# ─── ATOMIC SERVICE URLS ──────────────────────────────────────────────────────
+INVENTORY_URL    = os.environ.get('INVENTORY_URL',    'http://localhost:5001')
+CUSTOMER_URL     = os.environ.get('CUSTOMER_URL',     'http://localhost:5000')
+RENTAL_URL       = os.environ.get('RENTAL_URL',       'http://localhost:5004')
+INVOICE_URL      = os.environ.get('INVOICE_URL',      'http://localhost:5005')
+NOTIFICATION_URL = os.environ.get('NOTIFICATION_URL', 'http://localhost:5003')
 
 @app.route("/rental-order", methods=['POST'])
 def place_rental_order():
@@ -44,6 +45,7 @@ def place_rental_order():
     start_date  = data['start_date']
     end_date    = data['end_date']
 
+    # ── Step 1: Get current dress inventory state ─────────────────────────────
     try:
         inventory_response = requests.get(f"{INVENTORY_URL}/inventory/{dress_id}", timeout=5)
         inventory_data = inventory_response.json()
@@ -64,6 +66,7 @@ def place_rental_order():
     if unavailable_dates is None:
         unavailable_dates = []
 
+    # ── Step 2: Check date overlap and add rental dates ──────────────────────
     start_date_obj = datetime.strptime(start_date, '%Y-%m-%d')
     end_date_obj = datetime.strptime(end_date, '%Y-%m-%d')
 
@@ -77,6 +80,7 @@ def place_rental_order():
             }), 400
         current_date = current_date.replace(day=current_date.day + 1)
 
+    # Add all rental dates to unavailable_dates
     rental_dates = []
     current_date = start_date_obj
     while current_date <= end_date_obj:
@@ -87,11 +91,12 @@ def place_rental_order():
 
     updated_dates = unavailable_dates + rental_dates
 
+    # ── Step 3: Update inventory with new unavailable dates ──────────────────
     try:
         inventory_update_response = requests.put(
             f"{INVENTORY_URL}/inventory/{dress_id}",
             json={
-                "is_available": True,  
+                "is_available": True,  # Keep available for fittings
                 "unavailable_dates": updated_dates
             },
             timeout=5
@@ -108,6 +113,8 @@ def place_rental_order():
 
     dress_price = dress["price"]
     dress_size  = dress["size"]
+
+    # ── Step 4: Create rental record ─────────────────────────────────────────
     try:
         rental_response = requests.post(
             f"{RENTAL_URL}/rental",
@@ -133,6 +140,7 @@ def place_rental_order():
     rental = rental_data["data"]
     rental_id = rental["rental_id"]
 
+    # ── Step 5: Create rental invoice ────────────────────────────────────────
     try:
         invoice_response = requests.post(
             f"{INVOICE_URL}/invoice",
@@ -156,6 +164,7 @@ def place_rental_order():
     invoice = invoice_data["data"]
     client_secret = invoice.get("client_secret")
 
+    # ── Step 6: Get customer information ─────────────────────────────────────
     try:
         customer_response = requests.get(f"{CUSTOMER_URL}/customer/{customer_id}", timeout=5)
         customer_data = customer_response.json()
@@ -170,6 +179,7 @@ def place_rental_order():
 
     customer = customer_data["data"]
 
+    # ── Step 7: Send confirmation SMS ────────────────────────────────────────
     try:
         requests.post(
             f"{NOTIFICATION_URL}/notifications",
@@ -188,6 +198,7 @@ def place_rental_order():
     except Exception as e:
         print(f"[WARNING] Notification service error: {str(e)}")
 
+    # ── Step 8: Return rental order confirmation ─────────────────────────────
     return jsonify({
         "code": 201,
         "data": {
@@ -205,5 +216,5 @@ def place_rental_order():
         }
     }), 201
 
-if name == 'main':
+if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5011, debug=False)
