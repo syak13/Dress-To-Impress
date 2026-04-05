@@ -2,124 +2,187 @@
   <section class="page">
     <h2>Return a Dress</h2>
 
-    <form class="form" @submit.prevent="handleReturn">
+    <!-- ── Phase 1: Rental lookup ─────────────────────────────────────────── -->
+    <div v-if="phase === 1" class="card">
       <h3>Return Details</h3>
 
-      <label>
-        Rental ID
-        <input v-model="returnForm.reference" type="text" required />
-      </label>
-
-      <label>
-        Return Date
-        <input v-model="returnForm.returnDate" type="date" required />
-      </label>
-
-      <div class="upload-group">
-        <span class="upload-label">Upload Image</span>
-
-        <input id="uploadImage" type="file" accept="image/*" class="file-input" @change="handleImageUpload" />
-
-        <label for="uploadImage" class="upload-btn">
-          <span class="upload-icon">+</span>
-          <span>{{ returnImageName || 'Choose image' }}</span>
-        </label>
-
-        <p v-if="returnImageName" class="file-name">
-          Selected: {{ returnImageName }}
-        </p>
+      <div class="form-group">
+        <label>Rental ID</label>
+        <input v-model="rentalId" type="text" placeholder="e.g. 2" />
       </div>
 
-      <div v-if="showFees" class="fee-grid">
-        <label>
-          Late Fee
-          <input v-model.number="returnForm.lateFee" type="number" min="0" step="0.01" />
-        </label>
-
-        <label>
-          Damage Fee
-          <input v-model.number="returnForm.damageFee" type="number" min="0" step="0.01" />
-        </label>
+      <div class="form-group">
+        <label>Return Date</label>
+        <input v-model="returnDate" type="date" :max="today" />
       </div>
 
-      <button type="submit">Submit return</button>
+      <p v-if="lookupError" class="error-msg">{{ lookupError }}</p>
 
-      <p v-if="returnSubmitted" class="success">
-        Return submitted. Thank you!
-      </p>
-    </form>
+      <button class="btn-primary" @click="proceedToReturn" :disabled="lookupLoading">
+        {{ lookupLoading ? 'Checking...' : 'Proceed to Return' }}
+      </button>
+    </div>
+
+    <!-- ── Phase 2: Image comparison + upload ─────────────────────────────── -->
+    <div v-else-if="phase === 2" class="card wide">
+      <h3>Submit Return — Rental #{{ rentalId }}</h3>
+
+      <div class="image-row">
+        <!-- Left: actual dress from DB -->
+        <div class="image-box">
+          <p class="image-label">Actual Dress</p>
+          <img :src="dressImage" alt="Dress" class="dress-img" />
+        </div>
+
+        <!-- Right: customer upload -->
+        <div class="image-box">
+          <p class="image-label">Upload Return Image</p>
+          <div class="upload-area" @click="triggerUpload">
+            <img v-if="uploadPreview" :src="uploadPreview" class="dress-img" alt="Uploaded" />
+            <div v-else class="upload-placeholder">
+              <span class="upload-icon">+</span>
+              <span>Click to upload image</span>
+            </div>
+          </div>
+          <input
+            id="upload-input"
+            type="file"
+            accept="image/*"
+            class="hidden-input"
+            @change="handleImageUpload"
+          />
+          <p v-if="uploadedFile" class="file-info">{{ uploadedFile.name }}</p>
+        </div>
+      </div>
+
+      <p v-if="submitError" class="error-msg">{{ submitError }}</p>
+
+      <button
+        class="btn-primary"
+        @click="submitReturn"
+        :disabled="!uploadedFile || submitLoading"
+      >
+        {{ submitLoading ? 'Processing...' : 'Submit Return' }}
+      </button>
+    </div>
   </section>
 </template>
 
 <script setup>
-import { reactive, ref, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 
-const route = useRoute()
 const router = useRouter()
 
-const activeTab = ref('rent')
-const selectedDress = ref(null)
-const showFees = ref(false)
-const returnImage = ref(null)
-const returnImageName = ref('')
+const phase      = ref(1)
+const today      = new Date().toISOString().slice(0, 10)
+const rentalId   = ref('')
+const returnDate = ref(today)
 
-const getTodayDate = () => {
-  return new Date().toISOString().slice(0, 10)
+const lookupError   = ref('')
+const lookupLoading = ref(false)
+
+const dressImage  = ref('')
+const rentalData  = ref(null)
+
+const uploadedFile  = ref(null)
+const uploadPreview = ref('')
+const submitError   = ref('')
+const submitLoading = ref(false)
+
+function triggerUpload() {
+  document.getElementById('upload-input').click()
 }
 
-onMounted(async () => {
-  const dressId = route.params.dressId
+function handleImageUpload(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  uploadedFile.value  = file
+  uploadPreview.value = URL.createObjectURL(file)
+}
 
-  if (dressId) {
-    const res = await fetch(`http://localhost:5001/inventory/${dressId}`)
-    const data = await res.json()
-
-    if (data.code === 200) {
-      selectedDress.value = data.data
-      rentForm.dress = `${selectedDress.value.dress_id} - ${selectedDress.value.name}`
-    }
+async function proceedToReturn() {
+  if (!rentalId.value || !returnDate.value) {
+    lookupError.value = 'Please fill in both Rental ID and Return Date.'
+    return
   }
 
-  returnForm.returnDate = getTodayDate()
-})
+  lookupLoading.value = true
+  lookupError.value   = ''
 
-const rentForm = reactive({
-  name: '',
-  dress: '',
-  startDate: '',
-  endDate: ''
-})
+  try {
+    const res  = await fetch(`http://localhost:5004/rental/${rentalId.value}`)
+    const data = await res.json()
 
-const returnForm = reactive({
-  reference: '',
-  returnDate: getTodayDate(),
-  lateFee: 0,
-  damageFee: 0
-})
+    if (res.status === 404 || data.code === 404) {
+      lookupError.value = 'No such Rental ID found.'
+      return
+    }
 
-const rentSubmitted = ref(false)
-const returnSubmitted = ref(false)
+    const rental = data.data
 
-const handleImageUpload = (event) => {
-  const file = event.target.files?.[0] || null
-  returnImage.value = file
-  returnImageName.value = file ? file.name : ''
-  showFees.value = !!file
+    if (rental.status === 'COMPLETED' || rental.status === 'CANCELLED') {
+      lookupError.value = `This order has been closed. Its status is "${rental.status}".`
+      return
+    }
+
+    if (rental.status !== 'ACTIVE') {
+      lookupError.value = `Rental is not active (status: ${rental.status}).`
+      return
+    }
+
+    rentalData.value = rental
+
+    // Fetch dress image from inventory
+    const invRes  = await fetch(`http://localhost:5001/inventory/${rental.dress_id}`)
+    const invData = await invRes.json()
+    if (invData.code === 200) {
+      dressImage.value = invData.data.img
+    }
+
+    phase.value = 2
+  } catch {
+    lookupError.value = 'Failed to connect to server. Please try again.'
+  } finally {
+    lookupLoading.value = false
+  }
 }
 
-const handleRent = () => {
-  rentSubmitted.value = true
-}
+async function submitReturn() {
+  if (!uploadedFile.value) return
 
-const handleReturn = async () => {
-  returnSubmitted.value = true
+  submitLoading.value = true
+  submitError.value   = ''
+
+  const formData = new FormData()
+  formData.append('rental_id',   rentalId.value)
+  formData.append('return_date', returnDate.value)
+  formData.append('image',       uploadedFile.value)
+
+  try {
+    const res  = await fetch('http://localhost:5012/return/image', {
+      method: 'POST',
+      body:   formData
+    })
+    const data = await res.json()
+
+    if (data.code !== 200) {
+      submitError.value = data.message || 'Failed to process return.'
+      return
+    }
+
+    router.push({ name: 'invoice', state: { invoice: data.data } })
+  } catch {
+    submitError.value = 'Failed to submit return. Please try again.'
+  } finally {
+    submitLoading.value = false
+  }
 }
 </script>
 
 <style scoped>
 .page {
-  max-width: 500px;
+  max-width: 900px;
   margin: 3rem auto;
   padding: 0 1rem;
 }
@@ -134,7 +197,9 @@ h2 {
   font-weight: 800;
 }
 
-.form {
+.card {
+  max-width: 500px;
+  margin: 0 auto;
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(20px);
   padding: 2.5rem;
@@ -147,14 +212,28 @@ h2 {
   overflow: hidden;
 }
 
-.form::before {
+.card.wide {
+  max-width: 820px;
+}
+
+.card::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: 0; left: 0; right: 0;
   height: 4px;
   background: var(--gradient-bg);
+}
+
+h3 {
+  color: var(--dark-blue);
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin: 0 0 1.5rem 0;
+  text-align: center;
+}
+
+.form-group {
+  margin-bottom: 1.2rem;
 }
 
 label {
@@ -165,9 +244,8 @@ label {
   margin-bottom: 0.5rem;
 }
 
-input,
-textarea,
-select {
+input[type="text"],
+input[type="date"] {
   width: 100%;
   padding: 1rem 1.2rem;
   border: 2px solid #e8eaf6;
@@ -178,19 +256,15 @@ select {
   box-sizing: border-box;
 }
 
-input:focus,
-textarea:focus,
-select:focus {
+input:focus {
   outline: none;
   border-color: var(--primary-pink);
   background: white;
-  box-shadow:
-    0 0 0 4px rgba(255, 154, 198, 0.15),
-    0 8px 25px rgba(255, 154, 198, 0.1);
+  box-shadow: 0 0 0 4px rgba(255, 154, 198, 0.15);
   transform: translateY(-1px);
 }
 
-button[type="submit"] {
+.btn-primary {
   width: 100%;
   padding: 1.2rem;
   background: var(--gradient-bg);
@@ -207,95 +281,113 @@ button[type="submit"] {
   box-shadow: 0 10px 30px rgba(255, 154, 198, 0.4);
 }
 
-button[type="submit"]:hover {
+.btn-primary:hover:not(:disabled) {
   transform: translateY(-3px);
   box-shadow: 0 20px 40px rgba(255, 154, 198, 0.5);
 }
 
-button[type="submit"]:active {
-  transform: translateY(-1px);
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
-.success {
-  background: rgba(34, 197, 94, 0.15);
-  border: 1px solid rgba(34, 197, 94, 0.3);
+.error-msg {
+  background: rgba(229, 62, 62, 0.1);
+  border: 1px solid rgba(229, 62, 62, 0.3);
   border-radius: 12px;
-  padding: 1rem;
-  color: #166534;
-  font-weight: 500;
-  text-align: center;
-  margin-top: 1.5rem;
+  padding: 0.9rem 1rem;
+  color: #c53030;
+  font-size: 0.95rem;
+  margin-top: 0.75rem;
 }
 
-.upload-group {
-  margin: 1rem 0 1.2rem;
+/* ── Phase 2 styles ──────────────────────────────────────────── */
+.image-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
 }
 
-.upload-label {
-  display: block;
+.image-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.image-label {
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--dark-blue);
-  margin-bottom: 0.5rem;
+  text-align: center;
+  margin: 0;
 }
 
-.file-input {
-  display: none;
-}
-
-.upload-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.6rem;
+.dress-img {
   width: 100%;
-  padding: 1rem 1.2rem;
+  height: 320px;
+  object-fit: cover;
+  border-radius: 16px;
+  border: 2px solid rgba(255, 154, 198, 0.2);
+}
+
+.upload-area {
+  width: 100%;
+  height: 320px;
   border-radius: 16px;
   border: 2px dashed rgba(255, 154, 198, 0.6);
   background: linear-gradient(135deg, rgba(255, 240, 248, 0.95), rgba(255, 255, 255, 0.95));
-  color: var(--dark-blue);
-  font-weight: 700;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
   transition: all 0.3s ease;
-  box-sizing: border-box;
 }
 
-.upload-btn:hover {
-  transform: translateY(-2px);
+.upload-area:hover {
   border-color: var(--primary-pink);
-  box-shadow: 0 12px 30px rgba(255, 154, 198, 0.15);
+  box-shadow: 0 8px 24px rgba(255, 154, 198, 0.2);
+}
+
+.upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--dark-blue);
+  font-weight: 600;
+  font-size: 0.95rem;
 }
 
 .upload-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 48px;
+  height: 48px;
   border-radius: 999px;
   background: var(--gradient-bg);
   color: white;
-  font-size: 1.2rem;
+  font-size: 1.8rem;
   line-height: 1;
 }
 
-.file-name {
-  margin-top: 0.7rem;
-  font-size: 0.9rem;
-  color: #64748b;
+.hidden-input {
+  display: none;
 }
 
-.fee-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-}
-
-h3 {
-  color: var(--dark-blue);
-  font-size: 1.3rem;
-  font-weight: 700;
-  margin: 0 0 1.5rem 0;
+.file-info {
   text-align: center;
+  font-size: 0.88rem;
+  color: #64748b;
+  margin: 0;
 }
-</style>        
+
+@media (max-width: 600px) {
+  .image-row {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
