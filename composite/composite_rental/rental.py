@@ -5,6 +5,8 @@ import os
 import logging
 import threading
 import time
+import json
+import pika
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -253,18 +255,34 @@ def confirm_rental_order():
         return "invoice_paid"
 
     def send_success_notification():
-        r = requests.post(f"{NOTIFICATION_URL}/notifications", json={
-            "customer_id": customer_id,
-            "phone": customer_phone,
-            "message": (
-                f"Hi {customer_name}, your rental (ID: {rental_id}) for dress {dress_id} "
-                f"(Size: {dress_size}) from {start_date} to {end_date} is confirmed! "
-                f"Total paid: ${amount}. Please return on time and in good condition."
+        try:
+            notification_data = {
+                "customer_id": customer_id,
+                "email": "", 
+                "message": (
+                    f"Hi {customer_name}, your rental (ID: {rental_id}) for dress {dress_id} "
+                    f"(Size: {dress_size}) from {start_date} to {end_date} is confirmed! "
+                    f"Total paid: ${amount}. Please return on time and in good condition."
+                ),
+                "phone": customer_phone if customer_phone else "+18777804236"
+            }
+            
+            # Connect to RabbitMQ instead of calling OutSystems directly
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
+            channel = connection.channel()
+            channel.queue_declare(queue='notifications_queue', durable=True)
+            
+            channel.basic_publish(
+                exchange='',
+                routing_key='notifications_queue',
+                body=json.dumps(notification_data),
+                properties=pika.BasicProperties(delivery_mode=2)
             )
-        }, timeout=5)
-        if r.status_code not in (200, 201):
-            raise Exception(f"Notification failed: {r.text}")
-        return "notification_sent"
+            connection.close()
+            return "notification_queued_in_rabbitmq"
+            
+        except Exception as e:
+            raise Exception(f"RabbitMQ publishing failed: {str(e)}")
 
     with ThreadPoolExecutor(max_workers=3) as executor:
         futures = {
@@ -367,15 +385,47 @@ def cleanup_stale_rentals():
             stale = resp.json().get("data", [])
             for rental in stale:
                 rid = rental["rental_id"]
+                cid = rental.get("customer_id")
+                
                 try:
+                    # 1. Update Database to CANCELLED
                     requests.put(
                         f"{RENTAL_URL}/rental/{rid}",
                         json={"status": "CANCELLED"},
                         timeout=5
                     )
                     logger.warning(f"[CLEANUP] Auto-cancelled stale PENDING rental_id={rid}")
+                    
+                    # 2. Notify the customer via RabbitMQ
+                    if cid:
+                        # Fetch customer details to get the phone number/name
+                        cust_resp = requests.get(f"{CUSTOMER_URL}/customer/{cid}", timeout=5)
+                        cust_data = cust_resp.json().get("data", {})
+                        
+                        notification_data = {
+                            "customer_id": cid,
+                            "email": cust_data.get("email", ""),
+                            "message": (
+                                f"Hi {cust_data.get('name', 'Customer')}, your pending rental order "
+                                f"(ID: {rid}) was automatically cancelled because payment was not completed."
+                            ),
+                            "phone": cust_data.get("phone", "+18777804236")
+                        }
+
+                        connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
+                        channel = connection.channel()
+                        channel.queue_declare(queue='notifications_queue', durable=True)
+                        channel.basic_publish(
+                            exchange='',
+                            routing_key='notifications_queue',
+                            body=json.dumps(notification_data),
+                            properties=pika.BasicProperties(delivery_mode=2)
+                        )
+                        connection.close()
+                        logger.info(f"[CLEANUP] Sent auto-cancel notification to RabbitMQ for rental_id={rid}")
+
                 except Exception as e:
-                    logger.error(f"[CLEANUP] Failed to cancel rental_id={rid}: {e}")
+                    logger.error(f"[CLEANUP] Failed to process stale rental_id={rid}: {e}")
         except Exception as e:
             logger.error(f"[CLEANUP] Stale check failed: {e}")
 
