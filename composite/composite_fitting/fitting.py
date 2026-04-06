@@ -232,17 +232,48 @@ def schedule_fitting():
 
 @app.route("/fitting/cancel/<int:booking_id>", methods=['PUT'])
 def cancel_fitting(booking_id):
+    # ── Step: Fetch Customer & Send Notification via RabbitMQ ────────────────
     try:
-        booking_response = requests.put(
-            f"{BOOKING_URL}/bookings/{booking_id}/cancel",
-            timeout=5
+        # 1. Fetch the customer data so we know who to text!
+        customer_id = booking.get("customer_id")
+        customer = {}
+        if customer_id:
+            cust_resp = requests.get(f"{CUSTOMER_URL}/customer/{customer_id}", timeout=5)
+            if cust_resp.status_code == 200:
+                customer = cust_resp.json().get("data", {})
+
+        # 2. Prepare the notification data using .get() to prevent crashes
+        notification_data = {
+            "customer_id": customer_id,
+            "email": customer.get("email", ""),
+            "message": (
+                f"Hi {customer.get('name', 'Customer')}, your fitting appointment "
+                f"(Booking ID: {booking_id}) has been successfully cancelled."
+            ),
+            "phone": customer.get("phone", "+18777804236")
+        }
+
+        # 3. Connect to RabbitMQ (the "Post Office")
+        connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
+        channel = connection.channel()
+
+        # 4. Ensure the queue exists
+        channel.queue_declare(queue='notifications_queue', durable=True)
+
+        # 5. Drop the message in the queue
+        channel.basic_publish(
+            exchange='',
+            routing_key='notifications_queue',
+            body=json.dumps(notification_data),
+            properties=pika.BasicProperties(
+                delivery_mode=2,  # Make message persistent
+            )
         )
-        booking_data = booking_response.json()
+        connection.close()
+        print(f"[DEBUG] Cancel notification for booking {booking_id} dropped into RabbitMQ!", flush=True)
+
     except Exception as e:
-        return jsonify({
-            "code": 500,
-            "message": f"Booking service error: {str(e)}"
-        }), 500
+        print(f"[ERROR] Failed to send cancel notification to RabbitMQ: {str(e)}", flush=True)
 
     if booking_response.status_code != 200:
         return jsonify({
