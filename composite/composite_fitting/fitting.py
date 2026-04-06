@@ -14,6 +14,52 @@ CUSTOMER_URL     = os.environ.get('CUSTOMER_URL',     'http://customer_service:5
 NOTIFICATION_URL = os.environ.get('NOTIFICATION_URL', 'https://personal-oqeeivkb.outsystemscloud.com/NotificationsAtomicMicroservice/rest/Notifications/SendNotification')
 
 
+@app.route("/fitting/dresses", methods=['GET'])
+def get_all_dresses():
+    try:
+        response = requests.get(f"{INVENTORY_URL}/inventory", timeout=5)
+        data = response.json()
+    except Exception as e:
+        return jsonify({
+            "code": 500,
+            "message": f"Failed to reach inventory service: {str(e)}"
+        }), 500
+
+    if response.status_code != 200:
+        return jsonify({
+            "code": response.status_code,
+            "message": data.get("message", "Could not retrieve dresses.")
+        }), response.status_code
+
+    return jsonify({
+        "code": 200,
+        "data": data.get("data", {})
+    }), 200
+
+
+@app.route("/fitting/dresses/<int:dress_id>", methods=['GET'])
+def get_dress_by_id(dress_id):
+    try:
+        response = requests.get(f"{INVENTORY_URL}/inventory/{dress_id}", timeout=5)
+        data = response.json()
+    except Exception as e:
+        return jsonify({
+            "code": 500,
+            "message": f"Failed to reach inventory service: {str(e)}"
+        }), 500
+
+    if response.status_code != 200:
+        return jsonify({
+            "code": response.status_code,
+            "message": data.get("message", f"Dress {dress_id} not found.")
+        }), response.status_code
+
+    return jsonify({
+        "code": 200,
+        "data": data.get("data", {})
+    }), 200
+
+
 @app.route("/fitting/available", methods=['GET'])
 def get_available_dresses():
     try:
