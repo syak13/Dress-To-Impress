@@ -26,6 +26,29 @@ INVOICE_URL           = os.environ.get('INVOICE_URL',           'http://localhos
 #   6. PUT   rental status → COMPLETED   → Rental Service
 #   7. Return invoice data to UI
 
+@app.route("/return/rental/<int:rental_id>", methods=['GET'])
+def get_rental(rental_id):
+    try:
+        response = requests.get(f"{RENTAL_URL}/rental/{rental_id}", timeout=5)
+        data = response.json()
+    except Exception as e:
+        return jsonify({
+            "code": 500,
+            "message": f"Failed to reach rental service: {str(e)}"
+        }), 500
+
+    if response.status_code != 200:
+        return jsonify({
+            "code": response.status_code,
+            "message": data.get("message", f"Rental {rental_id} not found.")
+        }), response.status_code
+
+    return jsonify({
+        "code": 200,
+        "data": data.get("data", {})
+    }), 200
+
+
 @app.route("/return/image", methods=['POST'])
 def log_return_with_image():
     """

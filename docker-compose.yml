@@ -166,8 +166,8 @@ services:
     depends_on:
       - rental_service
       - inventory_service
-      - return_assessment_service
       - invoice_service
+      - return_assessment_service
     volumes:
       - ./frontend/public/images:/images:ro
     environment:

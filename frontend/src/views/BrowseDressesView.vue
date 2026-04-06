@@ -58,7 +58,7 @@ const filters = reactive({
 
 const fetchDresses = async () => {
   try {
-    const res = await fetch('http://localhost:8000/inventory')
+    const res = await fetch('http://localhost:8000/fitting/dresses')
     const data = await res.json()
 
     if (data.code === 200) {

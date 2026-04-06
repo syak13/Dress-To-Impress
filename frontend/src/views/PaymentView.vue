@@ -72,7 +72,7 @@ let cardElement = null
 onMounted(async () => {
   // Load dress details
   const dressId = route.params.dressId
-  const res = await fetch(`http://localhost:8000/inventory/${dressId}`)
+  const res = await fetch(`http://localhost:8000/fitting/dresses/${dressId}`)
   const data = await res.json()
   if (data.code === 200) dress.value = data.data
 
@@ -137,7 +137,7 @@ async function handlePayment() {
     return
   }
 
-  const { client_secret, invoice_id, rental_id } = orderData
+  const { client_secret, rental_id } = orderData
 
   if (!client_secret) {
     apiError.value = 'Payment setup failed. Please contact support.'
@@ -159,12 +159,24 @@ async function handlePayment() {
     return
   }
 
-  // Step 3: Mark invoice as PAID
+  // Step 3: Confirm order — marks rental ACTIVE, invoice PAID, sends notification
   if (paymentIntent.status === 'succeeded') {
-    await fetch(`http://localhost:8000/invoice/${invoice_id}`, {
-      method: 'PUT',
+    await fetch('http://localhost:8000/rental-order/confirm', {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'PAID', stripe_id: paymentIntent.id })
+      body: JSON.stringify({
+        rental_id:      orderData.rental_id,
+        invoice_id:     orderData.invoice_id,
+        stripe_id:      paymentIntent.id,
+        customer_id:    orderData.customer_id,
+        customer_name:  orderData.customer_name,
+        customer_phone: orderData.customer_phone,
+        dress_id:       orderData.dress_id,
+        dress_size:     orderData.dress_size,
+        start_date:     orderData.start_date,
+        end_date:       orderData.end_date,
+        amount:         orderData.amount
+      })
     })
     confirmedRentalId.value = rental_id
     paymentSuccess.value = true
