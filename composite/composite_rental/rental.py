@@ -2,24 +2,13 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import requests
 import os
-import logging
 import threading
 import time
 import pika
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# ─── LOGGING SETUP ────────────────────────────────────────────────────────────
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    handlers=[
-        logging.FileHandler('rental_errors.log'),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app)
@@ -293,10 +282,10 @@ def confirm_rental_order():
             task = futures[future]
             try:
                 future.result()
-                logger.info(f"[CONFIRM] rental_id={rental_id} task={task} OK")
+                print(f"[CONFIRM] rental_id={rental_id} task={task} OK")
             except Exception as e:
                 fanout_errors.append(f"{task}: {str(e)}")
-                logger.error(f"[CONFIRM] rental_id={rental_id} task={task} FAILED: {e}")
+                print(f"[CONFIRM] rental_id={rental_id} task={task} FAILED: {e}")
 
     return jsonify({
         "code": 200,
@@ -320,15 +309,15 @@ def cancel_rental_order():
     customer_phone = data.get('customer_phone', '')
     reason         = data.get('reason', 'Payment failed')
 
-    logger.error(f"[CANCEL] rental_id={rental_id} customer_id={customer_id} reason={reason}")
+    print(f"[CANCEL] rental_id={rental_id} customer_id={customer_id} reason={reason}")
 
     # Cancel rental
     try:
         r = requests.put(f"{RENTAL_URL}/rental/{rental_id}", json={"status": "CANCELLED"}, timeout=5)
         if r.status_code != 200:
-            logger.error(f"[CANCEL] Failed to cancel rental {rental_id}: {r.text}")
+            print(f"[CANCEL] Failed to cancel rental {rental_id}: {r.text}")
     except Exception as e:
-        logger.error(f"[CANCEL] Rental cancellation error: {e}")
+        print(f"[CANCEL] Rental cancellation error: {e}")
 
     # ── Step 2: Notify customer of failure (Asynchronous) ────────────────────
     try:
@@ -360,10 +349,10 @@ def cancel_rental_order():
             )
         )
         connection.close()
-        logger.info(f"[CANCEL] Failure notification dropped into RabbitMQ for rental_id={rental_id}")
+        print(f"[CANCEL] Failure notification dropped into RabbitMQ for rental_id={rental_id}")
 
     except Exception as e:
-        logger.error(f"[CANCEL] Failed to send failure notification to RabbitMQ: {e}")
+        print(f"[CANCEL] Failed to send failure notification to RabbitMQ: {e}")
 
     return jsonify({"code": 200, "data": {"rental_id": rental_id, "status": "CANCELLED"}})
 
@@ -393,9 +382,33 @@ def cleanup_stale_rentals():
                         json={"status": "CANCELLED"},
                         timeout=5
                     )
-                    logger.warning(f"[CLEANUP] Auto-cancelled stale PENDING rental_id={rid}")
+                    print(f"[CLEANUP] Auto-cancelled stale PENDING rental_id={rid}")
+
+                    # 2. Remove rental dates from inventory unavailable_dates
+                    dress_id   = rental.get("dress_id")
+                    start_date = rental.get("start_date")
+                    end_date   = rental.get("end_date")
+                    if dress_id and start_date and end_date:
+                        inv_resp = requests.get(f"{INVENTORY_URL}/inventory/{dress_id}", timeout=5)
+                        if inv_resp.status_code == 200:
+                            dress = inv_resp.json().get("data", {})
+                            current_dates = dress.get("unavailable_dates") or []
+                            start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+                            end_dt   = datetime.strptime(end_date,   '%Y-%m-%d')
+                            rental_dates = set()
+                            cur = start_dt
+                            while cur <= end_dt:
+                                rental_dates.add(cur.strftime('%Y-%m-%d'))
+                                cur += timedelta(days=1)
+                            updated_dates = [d for d in current_dates if d not in rental_dates]
+                            requests.put(
+                                f"{INVENTORY_URL}/inventory/{dress_id}",
+                                json={"is_available": True, "unavailable_dates": updated_dates},
+                                timeout=5
+                            )
+                            print(f"[CLEANUP] Freed inventory dates for dress_id={dress_id} rental_id={rid}")
                     
-                    # 2. Notify the customer via RabbitMQ
+                    # 3. Notify the customer via RabbitMQ
                     if cid:
                         # Fetch customer details to get the phone number/name
                         cust_resp = requests.get(f"{CUSTOMER_URL}/customer/{cid}", timeout=5)
@@ -421,12 +434,12 @@ def cleanup_stale_rentals():
                             properties=pika.BasicProperties(delivery_mode=2)
                         )
                         connection.close()
-                        logger.info(f"[CLEANUP] Sent auto-cancel notification to RabbitMQ for rental_id={rid}")
+                        print(f"[CLEANUP] Sent auto-cancel notification to RabbitMQ for rental_id={rid}")
 
                 except Exception as e:
-                    logger.error(f"[CLEANUP] Failed to process stale rental_id={rid}: {e}")
+                    print(f"[CLEANUP] Failed to process stale rental_id={rid}: {e}")
         except Exception as e:
-            logger.error(f"[CLEANUP] Stale check failed: {e}")
+            print(f"[CLEANUP] Stale check failed: {e}")
 
 cleanup_thread = threading.Thread(target=cleanup_stale_rentals, daemon=True)
 cleanup_thread.start()

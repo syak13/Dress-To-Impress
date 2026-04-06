@@ -300,41 +300,5 @@ def create_ai_assessment():
         }
     }), 201
 
-
-@app.route("/assessment", methods=["POST"])
-def create_assessment():
-    data = request.get_json() or {}
-    for field in ["rental_id", "dress_id", "end_date"]:
-        if field not in data:
-            return jsonify({"code": 400, "message": f"Missing required field: {field}"}), 400
-
-    is_late    = calculate_is_late(data["end_date"])
-    is_damaged = bool(data.get("is_damaged", False))
-
-    assessment = ReturnAssessment(
-        rental_id=data["rental_id"],
-        dress_id=data["dress_id"],
-        return_date=datetime.now(),
-        is_late=is_late,
-        is_damaged=is_damaged,
-        damage_description=data.get("damage_description", ""),
-    )
-    try:
-        db.session.add(assessment)
-        db.session.commit()
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"code": 500, "message": f"Error creating assessment: {e}"}), 500
-
-    return jsonify({
-        "code": 201,
-        "data": {
-            "assessment_id": assessment.assessment_id,
-            "is_late":       assessment.is_late,
-            "is_damaged":    assessment.is_damaged
-        }
-    }), 201
-
-
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5006, debug=False)
