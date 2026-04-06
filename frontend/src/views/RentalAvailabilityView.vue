@@ -76,7 +76,7 @@ onMounted(async () => {
   const dressId = route.params.dressId
   if (!dressId) return
 
-  const res = await fetch(`http://localhost:5001/inventory/${dressId}`)
+  const res = await fetch(`http://localhost:8000/inventory/${dressId}`)
   const data = await res.json()
 
   if (data.code === 200) {

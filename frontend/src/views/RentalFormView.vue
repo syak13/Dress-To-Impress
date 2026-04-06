@@ -138,7 +138,7 @@ onMounted(async () => {
 
   const dressId = route.params.dressId
   if (dressId) {
-    const res = await fetch(`http://localhost:5001/inventory/${dressId}`)
+    const res = await fetch(`http://localhost:8000/inventory/${dressId}`)
     const data = await res.json()
     if (data.code === 200) {
       selectedDress.value = data.data
@@ -216,7 +216,7 @@ async function handlePayment() {
 
   let orderData
   try {
-    const orderRes = await fetch('http://localhost:5011/rental-order', {
+    const orderRes = await fetch('http://localhost:8000/rental-order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -258,7 +258,7 @@ async function handlePayment() {
   // ── Payment failed ────────────────────────────────────────────────────────
   if (error) {
     try {
-      await fetch('http://localhost:5011/rental-order/cancel', {
+      await fetch('http://localhost:8000/rental-order/cancel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -281,7 +281,7 @@ async function handlePayment() {
   // ── Payment succeeded — fan-out via composite ─────────────────────────────
   if (paymentIntent.status === 'succeeded') {
     try {
-      await fetch('http://localhost:5011/rental-order/confirm', {
+      await fetch('http://localhost:8000/rental-order/confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

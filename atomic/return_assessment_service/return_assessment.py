@@ -204,7 +204,7 @@ def analyze_dress_damage(image_file, original_image_file=None):
             "description": "Groq temporarily unavailable - demo mode"
         }
 
-# Fee calculation (completely unchanged — $20 to $200)
+# Fee calculation
 def calculate_damage_fee(damage_percent):
     if damage_percent <= 5:
         return 0.0
