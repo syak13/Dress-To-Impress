@@ -139,8 +139,7 @@ def place_rental_order():
                 "customer_id": customer_id,
                 "dress_id":    dress_id,
                 "start_date":  start_date,
-                "end_date":    end_date,
-                "status":      "PENDING"
+                "end_date":    end_date
             },
             timeout=5
         )

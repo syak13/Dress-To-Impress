@@ -55,7 +55,7 @@ def create_rental():
         dress_id=data['dress_id'],
         start_date=start_date,
         end_date=end_date,
-        status=data.get('status', 'PENDING')
+        status='PENDING'
     )
 
     try:
