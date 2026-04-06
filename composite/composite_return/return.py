@@ -49,6 +49,29 @@ def get_rental(rental_id):
     }), 200
 
 
+@app.route("/return/dress/<int:dress_id>", methods=['GET'])
+def get_dress(dress_id):
+    try:
+        response = requests.get(f"{INVENTORY_URL}/inventory/{dress_id}", timeout=5)
+        data = response.json()
+    except Exception as e:
+        return jsonify({
+            "code": 500,
+            "message": f"Failed to reach inventory service: {str(e)}"
+        }), 500
+
+    if response.status_code != 200:
+        return jsonify({
+            "code": response.status_code,
+            "message": data.get("message", f"Dress {dress_id} not found.")
+        }), response.status_code
+
+    return jsonify({
+        "code": 200,
+        "data": data.get("data", {})
+    }), 200
+
+
 @app.route("/return/image", methods=['POST'])
 def log_return_with_image():
     """

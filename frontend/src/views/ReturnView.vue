@@ -140,7 +140,7 @@ async function proceedToReturn() {
     rentalData.value = rental
 
     // Fetch dress image from inventory
-    const invRes  = await fetch(`http://localhost:8000/fitting/dresses/${rental.dress_id}`)
+    const invRes  = await fetch(`http://localhost:8000/return/dress/${rental.dress_id}`)
     const invData = await invRes.json()
     if (invData.code === 200) {
       dressImage.value = invData.data.img
