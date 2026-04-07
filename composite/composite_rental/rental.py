@@ -358,8 +358,8 @@ def cancel_rental_order():
 
 
 # ─── BACKGROUND CLEANUP: Cancel stuck PENDING rentals ────────────────────────
-STALE_MINUTES    = 5    # cancel PENDING rentals older than this
-CLEANUP_INTERVAL = 120  # run every 2 minutes
+STALE_MINUTES    = 2    # cancel PENDING rentals older than this
+CLEANUP_INTERVAL = 60  # run every 2 minutes
 
 def cleanup_stale_rentals():
     while True:

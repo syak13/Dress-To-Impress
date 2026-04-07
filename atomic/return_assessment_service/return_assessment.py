@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from flask_cors import CORS
 from datetime import date, datetime
 import os
 import base64
@@ -11,7 +10,6 @@ load_dotenv()  # Loads .env file
 
 
 app = Flask(__name__)
-CORS(app)
 
 groq_client = Groq(api_key=os.getenv('GROQ_API_KEY'))
 
