@@ -1,11 +1,44 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from flasgger import Swagger
 import requests
 import os
 from datetime import date
 
 app = Flask(__name__)
 CORS(app)
+
+app.config['SWAGGER'] = {
+    'title': 'Return Service API',
+    'openapi': '3.0.2',
+    'uiversion': 3
+}
+
+swagger_config = {
+    "headers": [],
+    "specs": [
+        {
+            "endpoint": "apispec",
+            "route": "/apispec.json",
+            "rule_filter": lambda rule: True,
+            "model_filter": lambda tag: True,
+        }
+    ],
+    "swagger_ui": True,
+    "specs_route": "/apidocs/"
+}
+
+swagger_template = {
+    "openapi": "3.0.2",
+    "info": {
+        "title": "Return Service API",
+        "version": "1.0.0",
+        "description": "Composite microservice for retrieving rental and dress return details, processing returned dress images, and completing returns."
+    }
+}
+
+swagger = Swagger(app, config=swagger_config, template=swagger_template)
+
 app.config['TRUSTED_HOSTS'] = None
 
 # ─── ATOMIC SERVICE URLS ──────────────────────────────────────────────────────
@@ -28,6 +61,26 @@ INVOICE_URL           = os.environ.get('INVOICE_URL',           'http://localhos
 
 @app.route("/return/rental/<int:rental_id>", methods=['GET'])
 def get_rental(rental_id):
+    """
+    Get rental details for a return
+    ---
+    tags:
+      - Return
+    parameters:
+      - name: rental_id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 1
+    responses:
+      200:
+        description: Rental details retrieved successfully
+      404:
+        description: Rental not found
+      500:
+        description: Failed to reach rental service
+    """
     try:
         response = requests.get(f"{RENTAL_URL}/rental/{rental_id}", timeout=5)
         data = response.json()
@@ -51,6 +104,26 @@ def get_rental(rental_id):
 
 @app.route("/return/dress/<int:dress_id>", methods=['GET'])
 def get_dress(dress_id):
+    """
+    Get dress details for a return
+    ---
+    tags:
+      - Return
+    parameters:
+      - name: dress_id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 201
+    responses:
+      200:
+        description: Dress details retrieved successfully
+      404:
+        description: Dress not found
+      500:
+        description: Failed to reach inventory service
+    """
     try:
         response = requests.get(f"{INVENTORY_URL}/inventory/{dress_id}", timeout=5)
         data = response.json()
@@ -75,10 +148,40 @@ def get_dress(dress_id):
 @app.route("/return/image", methods=['POST'])
 def log_return_with_image():
     """
-    Expected multipart/form-data:
-    - rental_id:   int  (form field)
-    - return_date: str  YYYY-MM-DD (form field)
-    - image:       file
+    Process a dress return using an uploaded image
+    ---
+    tags:
+      - Return
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required:
+              - rental_id
+              - image
+            properties:
+              rental_id:
+                type: integer
+                example: 1
+              return_date:
+                type: string
+                format: date
+                example: "2026-04-07"
+              image:
+                type: string
+                format: binary
+                description: Image of the returned dress
+    responses:
+      200:
+        description: Return processed successfully
+      400:
+        description: Missing required fields or invalid/non-dress image
+      404:
+        description: Rental not found
+      500:
+        description: Failed to process return due to downstream service error
     """
     rental_id_str = request.form.get('rental_id')
     return_date_str = request.form.get('return_date')

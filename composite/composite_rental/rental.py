@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from flasgger import Swagger
 import requests
 import os
 import threading
@@ -13,6 +14,37 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 app = Flask(__name__)
 CORS(app)
 
+app.config['SWAGGER'] = {
+    'title': 'Rental Order Service API',
+    'openapi': '3.0.2',
+    'uiversion': 3
+}
+
+swagger_config = {
+    "headers": [],
+    "specs": [
+        {
+            "endpoint": "apispec",
+            "route": "/apispec.json",
+            "rule_filter": lambda rule: True,
+            "model_filter": lambda tag: True,
+        }
+    ],
+    "swagger_ui": True,
+    "specs_route": "/apidocs/"
+}
+
+swagger_template = {
+    "openapi": "3.0.2",
+    "info": {
+        "title": "Rental Order Service API",
+        "version": "1.0.0",
+        "description": "Composite microservice for placing, confirming, and cancelling dress rental orders."
+    }
+}
+
+swagger = Swagger(app, config=swagger_config, template=swagger_template)
+
 # ─── ATOMIC SERVICE URLS ──────────────────────────────────────────────────────
 INVENTORY_URL    = os.environ.get('INVENTORY_URL',    'http://localhost:5001')
 CUSTOMER_URL     = os.environ.get('CUSTOMER_URL',     'http://localhost:5000')
@@ -23,13 +55,45 @@ NOTIFICATION_URL = os.environ.get('NOTIFICATION_URL', 'http://localhost:5003')
 @app.route("/rental-order", methods=['POST'])
 def place_rental_order():
     """
-    Expected JSON:
-    {
-        "customer_id": 1,
-        "dress_id": 201,
-        "start_date": "2026-06-01",
-        "end_date": "2026-06-05"
-    }
+    Place a rental order
+    ---
+    tags:
+      - Rental Order
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - customer_id
+              - dress_id
+              - start_date
+              - end_date
+            properties:
+              customer_id:
+                type: integer
+                example: 1
+              dress_id:
+                type: integer
+                example: 201
+              start_date:
+                type: string
+                format: date
+                example: "2026-06-01"
+              end_date:
+                type: string
+                format: date
+                example: "2026-06-05"
+    responses:
+      201:
+        description: Rental order placed successfully
+      400:
+        description: Invalid JSON, missing required fields, or dress unavailable for selected dates
+      404:
+        description: Customer or dress not found
+      500:
+        description: Downstream service error while creating rental order
     """
     try:
         data = request.get_json()
@@ -208,11 +272,63 @@ def place_rental_order():
 @app.route("/rental-order/confirm", methods=['POST'])
 def confirm_rental_order():
     """
-    Called by frontend after Stripe payment succeeds.
-    Fan-out: update rental ACTIVE + update invoice PAID + send notification (parallel).
-    Expected JSON: { rental_id, invoice_id, stripe_id, customer_id,
-                     customer_name, customer_phone, dress_id, dress_size,
-                     start_date, end_date, amount }
+    Confirm a rental order after successful payment
+    ---
+    tags:
+      - Rental Order
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - rental_id
+              - invoice_id
+              - stripe_id
+            properties:
+              rental_id:
+                type: integer
+                example: 1
+              invoice_id:
+                type: integer
+                example: 10
+              stripe_id:
+                type: string
+                example: "pi_123456789"
+              customer_id:
+                type: integer
+                example: 1
+              customer_name:
+                type: string
+                example: "Syakira"
+              customer_phone:
+                type: string
+                example: "+6591234567"
+              dress_id:
+                type: integer
+                example: 201
+              dress_size:
+                type: string
+                example: "M"
+              start_date:
+                type: string
+                format: date
+                example: "2026-06-01"
+              end_date:
+                type: string
+                format: date
+                example: "2026-06-05"
+              amount:
+                type: number
+                example: 89.90
+    responses:
+      200:
+        description: Rental order confirmed successfully
+      400:
+        description: Missing required fields
+      500:
+        description: Failed to confirm rental order fully
     """
     data = request.get_json()
     rental_id      = data['rental_id']
@@ -298,9 +414,41 @@ def confirm_rental_order():
 @app.route("/rental-order/cancel", methods=['POST'])
 def cancel_rental_order():
     """
-    Called by frontend when Stripe payment fails.
-    Cancels rental + sends failure notification.
-    Expected JSON: { rental_id, customer_id, customer_name, customer_phone, reason }
+    Cancel a rental order after failed payment
+    ---
+    tags:
+      - Rental Order
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - rental_id
+            properties:
+              rental_id:
+                type: integer
+                example: 1
+              customer_id:
+                type: integer
+                example: 1
+              customer_name:
+                type: string
+                example: "Syakira"
+              customer_phone:
+                type: string
+                example: "+6591234567"
+              reason:
+                type: string
+                example: "Payment failed"
+    responses:
+      200:
+        description: Rental order cancelled successfully
+      400:
+        description: Missing required fields
+      500:
+        description: Failed to cancel rental order cleanly
     """
     data           = request.get_json()
     rental_id      = data['rental_id']

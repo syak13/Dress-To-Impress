@@ -1,10 +1,43 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+from flasgger import Swagger
 
 import os
 
 app=Flask(__name__)
+
+app.config['SWAGGER'] = {
+    'title': 'Customer Service API',
+    'openapi': '3.0.2',
+    'uiversion': 3
+}
+
+swagger_config = {
+    "headers": [],
+    "specs": [
+        {
+            "endpoint": "apispec",
+            "route": "/apispec.json",
+            "rule_filter": lambda rule: True,
+            "model_filter": lambda tag: True,
+        }
+    ],
+    "swagger_ui": True,
+    "specs_route": "/apidocs/"
+}
+
+swagger_template = {
+    "openapi": "3.0.2",
+    "info": {
+        "title": "Customer Service API",
+        "version": "1.0.0",
+        "description": "Atomic microservice for managing customer accounts and profile data."
+    }
+}
+
+swagger = Swagger(app, config=swagger_config, template=swagger_template)
+
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
     'DBURI', 'mysql+mysqlconnector://root:root@localhost:3306/dress_rental'
 )
@@ -38,6 +71,17 @@ class Customer(db.Model):
 
 @app.route("/customer")
 def get_all():
+    """
+    Get all customers
+    ---
+    tags:
+      - Customers
+    responses:
+      200:
+        description: List of all customers
+      404:
+        description: No customers found
+    """
     customers = db.session.scalars(db.select(Customer)).all()
 
     if len(customers):
@@ -58,6 +102,24 @@ def get_all():
 
 @app.route("/customer/<int:customer_id>")
 def find_by_customer_id(customer_id):
+    """
+    Get customer by customer ID
+    ---
+    tags:
+      - Customers
+    parameters:
+      - name: customer_id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 1
+    responses:
+      200:
+        description: Customer found
+      404:
+        description: Customer not found
+    """
     customer = db.session.scalar(
         db.select(Customer).filter_by(customer_id=customer_id)
     )
@@ -78,6 +140,44 @@ def find_by_customer_id(customer_id):
 
 @app.route("/customer", methods=['POST'])
 def create_customer():
+    """
+    Create a customer
+    ---
+    tags:
+      - Customers
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - name
+              - email
+            properties:
+              name:
+                type: string
+                example: "Syakira"
+              email:
+                type: string
+                example: "syakira@example.com"
+              phone:
+                type: string
+                example: "+6591234567"
+              password:
+                type: string
+                example: "password123"
+              role:
+                type: string
+                example: "customer"
+    responses:
+      201:
+        description: Customer created successfully
+      400:
+        description: Missing required fields or duplicate email
+      500:
+        description: Customer creation failed
+    """
     data = request.get_json()
     
     if not data or 'name' not in data or 'email' not in data:
@@ -121,6 +221,42 @@ def create_customer():
 
 @app.route("/customer/register", methods=['POST'])
 def register_customer():
+    """
+    Register a customer account
+    ---
+    tags:
+      - Customers
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - name
+              - email
+              - password
+            properties:
+              name:
+                type: string
+                example: "Syakira"
+              email:
+                type: string
+                example: "syakira@example.com"
+              password:
+                type: string
+                example: "mypassword"
+              phone:
+                type: string
+                example: "+6591234567"
+    responses:
+      201:
+        description: Customer account created successfully
+      400:
+        description: Missing required fields or duplicate email
+      500:
+        description: Account creation failed
+    """
     data = request.get_json()
 
     if not data or 'name' not in data or 'email' not in data or 'password' not in data:
@@ -146,6 +282,35 @@ def register_customer():
 
 @app.route("/customer/login", methods=['POST'])
 def login_customer():
+    """
+    Log in a customer
+    ---
+    tags:
+      - Customers
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - email
+              - password
+            properties:
+              email:
+                type: string
+                example: "syakira@example.com"
+              password:
+                type: string
+                example: "mypassword"
+    responses:
+      200:
+        description: Login successful
+      400:
+        description: Missing required fields
+      401:
+        description: Invalid email or password
+    """
     data = request.get_json()
 
     if not data or 'email' not in data or 'password' not in data:
@@ -160,6 +325,40 @@ def login_customer():
 
 @app.route("/customer/<int:customer_id>", methods=['PUT'])
 def update_customer(customer_id):
+    """
+    Update a customer
+    ---
+    tags:
+      - Customers
+    parameters:
+      - name: customer_id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 1
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name:
+                type: string
+                example: "Syakira Sulaiman"
+              email:
+                type: string
+                example: "syakira@example.com"
+              phone:
+                type: string
+                example: "+6591234567"
+    responses:
+      200:
+        description: Customer updated successfully
+      404:
+        description: Customer not found
+    """
     customer = db.session.scalar(db.select(Customer).filter_by(customer_id=customer_id))
     if not customer:
         return jsonify({"code": 404, "message": "Customer not found"}), 404

@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+from flasgger import Swagger
 from datetime import date, datetime
 import os
 import base64
@@ -12,6 +13,37 @@ load_dotenv()  # Loads .env file
 
 app = Flask(__name__)
 CORS(app)
+
+app.config['SWAGGER'] = {
+    'title': 'Return Assessment Service API',
+    'openapi': '3.0.2',
+    'uiversion': 3
+}
+
+swagger_config = {
+    "headers": [],
+    "specs": [
+        {
+            "endpoint": "apispec",
+            "route": "/apispec.json",
+            "rule_filter": lambda rule: True,
+            "model_filter": lambda tag: True,
+        }
+    ],
+    "swagger_ui": True,
+    "specs_route": "/apidocs/"
+}
+
+swagger_template = {
+    "openapi": "3.0.2",
+    "info": {
+        "title": "Return Assessment Service API",
+        "version": "1.0.0",
+        "description": "Atomic microservice for assessing returned dresses, detecting damage, and calculating penalty fees."
+    }
+}
+
+swagger = Swagger(app, config=swagger_config, template=swagger_template)
 
 groq_client = Groq(api_key=os.getenv('GROQ_API_KEY'))
 
@@ -221,6 +253,47 @@ def calculate_damage_fee(damage_percent):
 
 @app.route("/assessment/image", methods=["POST"])
 def create_ai_assessment():
+    """
+    Create an AI-based return assessment from uploaded dress images
+    ---
+    tags:
+      - Return Assessment
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required:
+              - image
+              - rental_id
+            properties:
+              image:
+                type: string
+                format: binary
+                description: Image of the returned dress
+              original_image:
+                type: string
+                format: binary
+                description: Optional original dress image for comparison
+              rental_id:
+                type: integer
+                example: 1001
+              dress_id:
+                type: integer
+                example: 101
+              end_date:
+                type: string
+                format: date
+                example: "2026-04-07"
+    responses:
+      201:
+        description: Assessment created successfully
+      400:
+        description: Missing file or rental ID, no image selected, or uploaded image is not a dress
+      500:
+        description: Assessment failed
+    """
     if 'image' not in request.files or 'rental_id' not in request.form:
         return jsonify({"code": 400, "message": "Missing image file or rental_id"}), 400
 
