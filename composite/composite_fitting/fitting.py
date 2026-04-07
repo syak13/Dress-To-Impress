@@ -2,11 +2,43 @@ from flask import Flask, request, jsonify
 import requests
 import os
 from flask_cors import CORS
+from flasgger import Swagger
 import pika
 import json
 
 app = Flask(__name__)
 CORS(app)
+
+app.config['SWAGGER'] = {
+    'title': 'Fitting Service API',
+    'openapi': '3.0.2',
+    'uiversion': 3
+}
+
+swagger_config = {
+    "headers": [],
+    "specs": [
+        {
+            "endpoint": "apispec",
+            "route": "/apispec.json",
+            "rule_filter": lambda rule: True,
+            "model_filter": lambda tag: True,
+        }
+    ],
+    "swagger_ui": True,
+    "specs_route": "/apidocs/"
+}
+
+swagger_template = {
+    "openapi": "3.0.2",
+    "info": {
+        "title": "Fitting Service API",
+        "version": "1.0.0",
+        "description": "Composite microservice for browsing dresses and scheduling or cancelling fitting appointments."
+    }
+}
+
+swagger = Swagger(app, config=swagger_config, template=swagger_template)
 
 INVENTORY_URL    = os.environ.get('INVENTORY_URL',    'http://inventory_service:5001')
 BOOKING_URL      = os.environ.get('BOOKING_URL',      'http://booking_service:5002')
@@ -16,6 +48,17 @@ NOTIFICATION_URL = os.environ.get('NOTIFICATION_URL', 'https://personal-oqeeivkb
 
 @app.route("/fitting/dresses", methods=['GET'])
 def get_all_dresses():
+    """
+    Get all dresses for fitting
+    ---
+    tags:
+      - Fitting
+    responses:
+      200:
+        description: List of dresses retrieved successfully
+      500:
+        description: Failed to reach inventory service
+    """
     try:
         response = requests.get(f"{INVENTORY_URL}/inventory", timeout=5)
         data = response.json()
@@ -39,6 +82,26 @@ def get_all_dresses():
 
 @app.route("/fitting/dresses/<int:dress_id>", methods=['GET'])
 def get_dress_by_id(dress_id):
+    """
+    Get dress details by dress ID
+    ---
+    tags:
+      - Fitting
+    parameters:
+      - name: dress_id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 101
+    responses:
+      200:
+        description: Dress retrieved successfully
+      404:
+        description: Dress not found
+      500:
+        description: Failed to reach inventory service
+    """
     try:
         response = requests.get(f"{INVENTORY_URL}/inventory/{dress_id}", timeout=5)
         data = response.json()
@@ -62,6 +125,19 @@ def get_dress_by_id(dress_id):
 
 @app.route("/fitting/available", methods=['GET'])
 def get_available_dresses():
+    """
+    Get all available dresses for fitting
+    ---
+    tags:
+      - Fitting
+    responses:
+      200:
+        description: Available dresses retrieved successfully
+      404:
+        description: No available dresses found
+      500:
+        description: Failed to reach inventory service
+    """
     try:
         response = requests.get(f"{INVENTORY_URL}/inventory/available", timeout=5)
         data = response.json()
@@ -85,6 +161,41 @@ def get_available_dresses():
 
 @app.route("/fitting/schedule", methods=['POST'])
 def schedule_fitting():
+    """
+    Schedule a fitting appointment
+    ---
+    tags:
+      - Fitting
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - customer_id
+              - dress_id
+              - slot_datetime
+            properties:
+              customer_id:
+                type: integer
+                example: 1
+              dress_id:
+                type: integer
+                example: 101
+              slot_datetime:
+                type: string
+                example: "2026-04-12 14:00:00"
+    responses:
+      201:
+        description: Fitting appointment scheduled successfully
+      400:
+        description: Invalid JSON, missing required fields, or dress unavailable on selected date
+      404:
+        description: Customer or dress not found
+      500:
+        description: Downstream service error or booking creation failed
+    """
     try:
         data = request.get_json()
     except Exception as e:
@@ -278,6 +389,26 @@ def schedule_fitting():
 
 @app.route("/fitting/cancel/<int:booking_id>", methods=['PUT'])
 def cancel_fitting(booking_id):
+    """
+    Cancel a fitting appointment
+    ---
+    tags:
+      - Fitting
+    parameters:
+      - name: booking_id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 1
+    responses:
+      200:
+        description: Fitting appointment cancelled successfully
+      404:
+        description: Booking not found
+      500:
+        description: Booking cancellation failed or downstream service error
+    """
     # ── Step: Fetch Customer & Send Notification via RabbitMQ ────────────────
     try:
         # 1. Fetch the customer data so we know who to text!

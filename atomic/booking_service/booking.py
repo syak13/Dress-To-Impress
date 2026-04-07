@@ -1,9 +1,42 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+from flasgger import Swagger
 import os
 
 app = Flask(__name__)
+
+app.config['SWAGGER'] = {
+    'title': 'Booking Service API',
+    'openapi': '3.0.2',
+    'uiversion': 3
+}
+
+swagger_config = {
+    "headers": [],
+    "specs": [
+        {
+            "endpoint": "apispec",
+            "route": "/apispec.json",
+            "rule_filter": lambda rule: True,
+            "model_filter": lambda tag: True,
+        }
+    ],
+    "swagger_ui": True,
+    "specs_route": "/apidocs/"
+}
+
+swagger_template = {
+    "openapi": "3.0.2",
+    "info": {
+        "title": "Booking Service API",
+        "version": "1.0.0",
+        "description": "Atomic microservice for managing dress fitting bookings."
+    }
+}
+
+swagger = Swagger(app, config=swagger_config, template=swagger_template)
+
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
     'DBURI', 'mysql+mysqlconnector://root:root@localhost:3306/dress_rental'
 )
@@ -43,6 +76,17 @@ class Booking(db.Model):
 
 @app.route("/bookings")
 def get_all():
+    """
+    Get all bookings
+    ---
+    tags:
+      - Bookings
+    responses:
+      200:
+        description: List of all bookings
+      404:
+        description: No bookings found
+    """
     bookings = db.session.scalars(db.select(Booking)).all()
 
     if len(bookings):
@@ -62,6 +106,24 @@ def get_all():
 
 @app.route("/bookings/<int:booking_id>")
 def get_by_booking_id(booking_id):
+    """
+    Get booking by booking ID
+    ---
+    tags:
+      - Bookings
+    parameters:
+      - name: booking_id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 1
+    responses:
+      200:
+        description: Booking found
+      404:
+        description: Booking not found
+    """
     booking = db.session.scalar(
         db.select(Booking).filter_by(booking_id=booking_id)
     )
@@ -81,6 +143,24 @@ def get_by_booking_id(booking_id):
 
 @app.route("/bookings/customer/<int:customer_id>")
 def get_by_customer_id(customer_id):
+    """
+    Get bookings by customer ID
+    ---
+    tags:
+      - Bookings
+    parameters:
+      - name: customer_id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 101
+    responses:
+      200:
+        description: Customer bookings found
+      404:
+        description: No bookings found for customer
+    """
     bookings = db.session.scalars(
         db.select(Booking).filter_by(customer_id=customer_id)
     ).all()
@@ -105,6 +185,39 @@ def get_by_customer_id(customer_id):
 
 @app.route("/bookings", methods=['POST'])
 def create_booking():
+    """
+    Create a new booking
+    ---
+    tags:
+      - Bookings
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - customer_id
+              - dress_id
+              - slot_datetime
+            properties:
+              customer_id:
+                type: integer
+                example: 1
+              dress_id:
+                type: integer
+                example: 101
+              slot_datetime:
+                type: string
+                example: "2026-04-16 10:00:00"
+    responses:
+      201:
+        description: Booking created successfully
+      400:
+        description: Missing required field
+      500:
+        description: Booking creation failed
+    """
     data = request.get_json()
 
     for field in ['customer_id', 'dress_id', 'slot_datetime']:
@@ -143,6 +256,28 @@ def create_booking():
 
 @app.route("/bookings/<int:booking_id>/cancel", methods=['PUT'])
 def cancel_booking(booking_id):
+    """
+    Cancel a booking
+    ---
+    tags:
+      - Bookings
+    parameters:
+      - name: booking_id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 1
+    responses:
+      200:
+        description: Booking cancelled successfully
+      400:
+        description: Booking already cancelled
+      404:
+        description: Booking not found
+      500:
+        description: Cancellation failed
+    """
     booking = db.session.scalar(
         db.select(Booking).filter_by(booking_id=booking_id)
     )

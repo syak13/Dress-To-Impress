@@ -3,9 +3,41 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 import stripe
 import os
+from flasgger import Swagger
 
 app = Flask(__name__)
 CORS(app)
+
+app.config['SWAGGER'] = {
+    'title': 'Invoice Service API',
+    'openapi': '3.0.2',
+    'uiversion': 3
+}
+
+swagger_config = {
+    "headers": [],
+    "specs": [
+        {
+            "endpoint": "apispec",
+            "route": "/apispec.json",
+            "rule_filter": lambda rule: True,
+            "model_filter": lambda tag: True,
+        }
+    ],
+    "swagger_ui": True,
+    "specs_route": "/apidocs/"
+}
+
+swagger_template = {
+    "openapi": "3.0.2",
+    "info": {
+        "title": "Invoice Service API",
+        "version": "1.0.0",
+        "description": "Atomic microservice for managing rental and penalty invoices."
+    }
+}
+
+swagger = Swagger(app, config=swagger_config, template=swagger_template)
 
 stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
 
@@ -56,6 +88,17 @@ class Invoice(db.Model):
 
 @app.route("/invoice")
 def get_all():
+    """
+    Get all invoices
+    ---
+    tags:
+      - Invoices
+    responses:
+      200:
+        description: List of all invoices
+      404:
+        description: No invoices found
+    """
     invoices = db.session.scalars(db.select(Invoice)).all()
 
     if len(invoices):
@@ -70,6 +113,24 @@ def get_all():
 
 @app.route("/invoice/<int:invoice_id>")
 def get_by_invoice_id(invoice_id):
+    """
+    Get invoice by invoice ID
+    ---
+    tags:
+      - Invoices
+    parameters:
+      - name: invoice_id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 1
+    responses:
+      200:
+        description: Invoice found
+      404:
+        description: Invoice not found
+    """
     invoice = db.session.get(Invoice, invoice_id)
 
     if invoice:
@@ -82,6 +143,24 @@ def get_by_invoice_id(invoice_id):
 
 @app.route("/invoice/rental/<int:rental_id>")
 def get_by_rental_id(rental_id):
+    """
+    Get invoices by rental ID
+    ---
+    tags:
+      - Invoices
+    parameters:
+      - name: rental_id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 1001
+    responses:
+      200:
+        description: Invoices found for rental
+      404:
+        description: No invoices found for rental
+    """
     invoices = db.session.scalars(
         db.select(Invoice).filter_by(rental_id=rental_id)
     ).all()
@@ -100,6 +179,45 @@ def get_by_rental_id(rental_id):
 
 @app.route("/invoice", methods=['POST'])
 def create_invoice():
+    """
+    Create a new invoice
+    ---
+    tags:
+      - Invoices
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - rental_id
+              - amount
+              - type
+            properties:
+              rental_id:
+                type: integer
+                example: 1001
+              amount:
+                type: number
+                example: 89.90
+              type:
+                type: string
+                example: "RENTAL"
+                enum:
+                  - RENTAL
+                  - PENALTY
+              stripe_id:
+                type: string
+                example: "pi_123456789"
+    responses:
+      201:
+        description: Invoice created successfully
+      400:
+        description: Missing required fields or invalid invoice type
+      500:
+        description: Invoice creation failed
+    """
     data = request.get_json()
 
     for field in ['rental_id', 'amount', 'type']:
@@ -155,6 +273,48 @@ def create_invoice():
 
 @app.route("/invoice/<int:invoice_id>", methods=['PUT'])
 def update_invoice_status(invoice_id):
+    """
+    Update invoice status
+    ---
+    tags:
+      - Invoices
+    parameters:
+      - name: invoice_id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 1
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - status
+            properties:
+              status:
+                type: string
+                example: "PAID"
+                enum:
+                  - PENDING
+                  - PAID
+                  - FAILED
+                  - REFUNDED
+              stripe_id:
+                type: string
+                example: "pi_123456789"
+    responses:
+      200:
+        description: Invoice updated successfully
+      400:
+        description: Missing required status or invalid status value
+      404:
+        description: Invoice not found
+      500:
+        description: Invoice update failed
+    """
     invoice = db.session.get(Invoice, invoice_id)
 
     if not invoice:

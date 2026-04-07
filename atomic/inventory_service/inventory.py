@@ -2,9 +2,41 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 import os
 from flask_cors import CORS
+from flasgger import Swagger
 
 app = Flask(__name__)
 CORS(app)
+
+app.config['SWAGGER'] = {
+    'title': 'Inventory Service API',
+    'openapi': '3.0.2',
+    'uiversion': 3
+}
+
+swagger_config = {
+    "headers": [],
+    "specs": [
+        {
+            "endpoint": "apispec",
+            "route": "/apispec.json",
+            "rule_filter": lambda rule: True,
+            "model_filter": lambda tag: True,
+        }
+    ],
+    "swagger_ui": True,
+    "specs_route": "/apidocs/"
+}
+
+swagger_template = {
+    "openapi": "3.0.2",
+    "info": {
+        "title": "Inventory Service API",
+        "version": "1.0.0",
+        "description": "Atomic microservice for managing dress inventory and availability."
+    }
+}
+
+swagger = Swagger(app, config=swagger_config, template=swagger_template)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
     'DBURI', 'mysql+mysqlconnector://root:root@localhost:3306/dress_rental'
@@ -53,6 +85,17 @@ class Inventory(db.Model):
 
 @app.route("/inventory", methods=['GET'])
 def get_all():
+    """
+    Get all dresses in inventory
+    ---
+    tags:
+      - Inventory
+    responses:
+      200:
+        description: List of all dresses
+      404:
+        description: No dresses found in inventory
+    """
     dresses = db.session.scalars(db.select(Inventory)).all()
 
     if dresses:
@@ -71,6 +114,24 @@ def get_all():
 
 @app.route("/inventory/<int:dress_id>", methods=['GET'])
 def get_by_dress_id(dress_id):
+    """
+    Get dress by dress ID
+    ---
+    tags:
+      - Inventory
+    parameters:
+      - name: dress_id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 101
+    responses:
+      200:
+        description: Dress found
+      404:
+        description: Dress not found
+    """
     dress = db.session.scalar(
         db.select(Inventory).filter_by(dress_id=dress_id)
     )
@@ -89,6 +150,17 @@ def get_by_dress_id(dress_id):
 
 @app.route("/inventory/available", methods=['GET'])
 def get_available():
+    """
+    Get all available dresses
+    ---
+    tags:
+      - Inventory
+    responses:
+      200:
+        description: List of available dresses
+      404:
+        description: No available dresses found
+    """
     dresses = db.session.scalars(
         db.select(Inventory).filter_by(is_available=True)
     ).all()
@@ -109,6 +181,47 @@ def get_available():
 
 @app.route("/inventory/<int:dress_id>", methods=['PUT'])
 def update_inventory(dress_id):
+    """
+    Update dress availability and unavailable dates
+    ---
+    tags:
+      - Inventory
+    parameters:
+      - name: dress_id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 101
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - is_available
+            properties:
+              is_available:
+                type: boolean
+                example: true
+              unavailable_dates:
+                type: array
+                items:
+                  type: string
+                example:
+                  - "2026-04-16"
+                  - "2026-04-17"
+    responses:
+      200:
+        description: Inventory updated successfully
+      400:
+        description: Invalid JSON or missing required field
+      404:
+        description: Dress not found
+      500:
+        description: Inventory update failed
+    """
     dress = db.session.scalar(
         db.select(Inventory).filter_by(dress_id=dress_id)
     )
@@ -161,6 +274,59 @@ def update_inventory(dress_id):
 
 @app.route("/inventory", methods=['POST'])
 def create_dress():
+    """
+    Create a new dress in inventory
+    ---
+    tags:
+      - Inventory
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - dress_id
+              - name
+              - size
+              - price
+              - color
+              - img
+            properties:
+              dress_id:
+                type: integer
+                example: 101
+              name:
+                type: string
+                example: "Pink Satin Gown"
+              size:
+                type: string
+                example: "M"
+              price:
+                type: number
+                example: 89.90
+              color:
+                type: string
+                example: "Pink"
+              img:
+                type: string
+                example: "images/pink-dress.jpg"
+              unavailable_dates:
+                type: array
+                items:
+                  type: string
+                example: []
+              is_available:
+                type: boolean
+                example: true
+    responses:
+      201:
+        description: Dress created successfully
+      400:
+        description: Invalid JSON, missing fields, or duplicate dress ID
+      500:
+        description: Dress creation failed
+    """
     try:
         data = request.get_json()
     except Exception as e:
