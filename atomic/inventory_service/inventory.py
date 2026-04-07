@@ -1,11 +1,9 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 import os
-from flask_cors import CORS
 from flasgger import Swagger
 
 app = Flask(__name__)
-CORS(app)
 
 app.config['SWAGGER'] = {
     'title': 'Inventory Service API',

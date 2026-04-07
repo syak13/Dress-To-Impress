@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from flask_cors import CORS
 from flasgger import Swagger
 
 import os
@@ -46,7 +45,6 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS']={'pool_recycle':299}
 app.config['TRUSTED_HOSTS'] = None
 
 db = SQLAlchemy(app)
-CORS(app)
 
 class Customer(db.Model):
     __tablename__ = 'customers'

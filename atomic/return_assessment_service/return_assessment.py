@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from flask_cors import CORS
 from flasgger import Swagger
 from datetime import date, datetime
 import os
@@ -12,7 +11,6 @@ load_dotenv()  # Loads .env file
 
 
 app = Flask(__name__)
-CORS(app)
 
 app.config['SWAGGER'] = {
     'title': 'Return Assessment Service API',
